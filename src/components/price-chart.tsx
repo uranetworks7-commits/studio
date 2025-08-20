@@ -10,10 +10,7 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
-import type { ChartConfig } from "@/components/ui/chart";
 
 interface PriceData { 
     time: string; 
@@ -35,7 +32,7 @@ const chartConfig = {
     label: "Price",
     color: "hsl(var(--chart-1))",
   }
-} satisfies ChartConfig;
+};
 
 export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
     const isPositiveChange = data.length > 1 ? currentPrice >= data[data.length - 2].price : true;
@@ -43,7 +40,9 @@ export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
     const renderTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             if (chartType === 'candlestick' && payload[0].payload.ohlc) {
-                const [open, high, low, close] = payload[0].payload.ohlc;
+                const ohlc = payload[0].payload.ohlc;
+                if (!ohlc || ohlc.length !== 4) return null;
+                const [open, high, low, close] = ohlc;
                 return (
                     <div className="p-2 text-sm bg-card border rounded-lg shadow-lg">
                         <p className="font-bold text-foreground">{`Time: ${label}`}</p>
@@ -54,26 +53,34 @@ export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
                     </div>
                 );
             }
-            return (
-            <div className="p-2 text-sm bg-card border rounded-lg shadow-lg">
-                <p className="font-bold text-foreground">{`Price: $${payload[0].value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</p>
-                <p className="text-muted-foreground">{`Time: ${label}`}</p>
-            </div>
-            );
+            if (payload[0].value) {
+                return (
+                <div className="p-2 text-sm bg-card border rounded-lg shadow-lg">
+                    <p className="font-bold text-foreground">{`Price: $${payload[0].value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</p>
+                    <p className="text-muted-foreground">{`Time: ${label}`}</p>
+                </div>
+                );
+            }
         }
         return null;
     };
 
     const CustomBar = (props: any) => {
         const { x, y, width, height, payload } = props;
+        if (!payload.ohlc) return null;
+        
         const [open, high, low, close] = payload.ohlc;
         const isPositive = close >= open;
         const color = isPositive ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-2))';
-      
+        const bodyHeight = Math.abs(y - (y + height * ((open - close) / (high-low)) )) || 1;
+        const bodyY = isPositive ? y + height * ((high - close) / (high - low)) : y + height * ((high - open) / (high - low));
+
         return (
           <g>
-            <line x1={x + width / 2} y1={y} x2={x + width / 2} y2={y + height} stroke={color} />
-            <rect x={x} y={isPositive ? y + (height * (1-((close-low)/(high-low)))) : y} width={width} height={Math.abs(open - close) / (high - low) * height || 1} fill={color} />
+            {/* Wick */}
+            <line x1={x + width / 2} y1={y} x2={x + width / 2} y2={y + height} stroke={color} strokeWidth={1}/>
+            {/* Body */}
+            <rect x={x} y={bodyY} width={width} height={bodyHeight} fill={color} />
           </g>
         );
       };
@@ -125,7 +132,7 @@ export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
                 </AreaChart>
             ) : (
                 <BarChart
-                    data={data}
+                    data={data.filter(d => d.ohlc)} // only render data with ohlc values
                     margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
                 >
                     <XAxis 
@@ -142,12 +149,14 @@ export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
                         axisLine={false}
                         orientation="right"
                         width={80}
+                        dataKey="ohlc"
                     />
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
                     <Tooltip content={renderTooltip} cursor={{stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '3 3'}} />
                     <Bar
                         dataKey="ohlc"
                         shape={<CustomBar />}
+                        isAnimationActive={false}
                     />
                 </BarChart>
             )}
