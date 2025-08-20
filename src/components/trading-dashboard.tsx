@@ -269,7 +269,7 @@ export default function TradingDashboard() {
   return (
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center">
-        <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
+        <h1 className="text-2xl font-headline font-bold text-primary">URA Trade</h1>
         {username && (
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">
