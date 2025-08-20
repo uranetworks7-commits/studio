@@ -69,7 +69,7 @@ const simulateTradeGainLossPrompt = ai.definePrompt({
   tools: [adjustVolatility],
   input: {schema: SimulateTradeGainLossInputSchema},
   output: {schema: SimulateTradeGainLossOutputSchema},
-  prompt: `You are simulating a Bitcoin trade to create a moderate difficulty experience. Given the current price of Bitcoin at {{{currentPrice}}}, the trade amount of {{{amount}}}, and a volatility profile, determine the new price and calculate the gain or loss.
+  prompt: `You are simulating a Bitcoin trade to create a easy-to-moderate difficulty experience. Given the current price of Bitcoin at {{{currentPrice}}}, the trade amount of {{{amount}}}, and a volatility profile, determine the new price and calculate the gain or loss.
 
 The user has set the volatility profile to: {{{volatilityProfile}}}. Use the adjustVolatility tool to get the correct volatility factor.
 
@@ -104,17 +104,17 @@ const simulateTradeGainLossFlow = ai.defineFlow(
     let marketTrend; // -1 for downtrend, 1 for uptrend, 0 for stable
     let eventMultiplier = 1;
 
-    // 20% chance of a strong trend
-    if (randomFactor < 0.1) {
+    // 10% chance of a strong trend
+    if (randomFactor < 0.05) {
         marketTrend = 1.5; // Strong uptrend
-    } else if (randomFactor < 0.2) {
+    } else if (randomFactor < 0.10) {
         marketTrend = -1.5; // Strong downtrend
-    } else if (randomFactor < 0.5) {
+    } else if (randomFactor < 0.40) {
         marketTrend = 1; // Normal uptrend
-    } else if (randomFactor < 0.8) {
+    } else if (randomFactor < 0.70) {
         marketTrend = -1; // Normal downtrend
     } else {
-        marketTrend = 0.5; // More stable
+        marketTrend = 0.5; // More stable/slight uptrend
     }
 
     // 10% chance of a major market event (big gain/loss)
