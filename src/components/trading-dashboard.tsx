@@ -8,7 +8,7 @@ import {
   Bitcoin,
   Landmark,
   Loader2,
-  LogOut,
+  MessageSquare,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -77,6 +77,7 @@ export default function TradingDashboard() {
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
+  const [priceTrend, setPriceTrend] = useState(0); // For simulating trends
 
   const { toast } = useToast();
 
@@ -101,15 +102,21 @@ export default function TradingDashboard() {
     if (!username) return;
 
     const interval = setInterval(() => {
-      setCurrentPrice((prevPrice) => {
-        const changePercent = (Math.random() - 0.49) * 0.01; // small random fluctuation
-        const newPrice = prevPrice * (1 + changePercent);
-        return newPrice;
-      });
+        // Adjust trend randomly
+        if (Math.random() < 0.1) { // 10% chance to change trend
+            setPriceTrend(Math.random() * 2 - 1); // -1 to 1
+        }
+
+        setCurrentPrice((prevPrice) => {
+            const baseChange = (Math.random() - 0.49) * 0.005; // Base fluctuation
+            const trendEffect = priceTrend * 0.005; // Trend influence
+            const newPrice = prevPrice * (1 + baseChange + trendEffect);
+            return newPrice;
+        });
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [username]);
+  }, [username, priceTrend]);
 
   useEffect(() => {
     setPriceHistory((prevHistory) => {
@@ -119,42 +126,38 @@ export default function TradingDashboard() {
           price: currentPrice,
         };
     
-        let updatedHistory = [...prevHistory, newEntry];
+        let updatedHistory = [...prevHistory, newEntry].filter(p => p.price); // Ensure no invalid price data
     
         if (chartType === 'candlestick') {
-          const totalPoints = updatedHistory.length;
-          if (totalPoints >= CANDLESTICK_INTERVAL) {
-            const lastCandleTime = updatedHistory[totalPoints - CANDLESTICK_INTERVAL].time;
-            const candleData = updatedHistory.slice(-CANDLESTICK_INTERVAL);
-            const open = candleData[0].price;
-            const close = candleData[candleData.length - 1].price;
-            const high = Math.max(...candleData.map(p => p.price));
-            const low = Math.min(...candleData.map(p => p.price));
-            
-            const candleEntry: PriceData = {
-              time: lastCandleTime.split(':')[0] + ':' + lastCandleTime.split(':')[1],
-              price: close,
-              ohlc: [open, high, low, close]
-            };
-    
-            // If the last entry is already a candle, update it. Otherwise, add a new one.
-            const lastEntry = prevHistory[prevHistory.length -1];
-            if (lastEntry && lastEntry.ohlc) {
-                // This logic is tricky, for now we just replace the last N points with one candle
-                const nonCandleHistory = prevHistory.filter(p => !p.ohlc);
-                return [...nonCandleHistory.slice(0, -(CANDLESTICK_INTERVAL-1)), candleEntry].slice(-PRICE_HISTORY_LENGTH);
+            const candleStickReadyHistory = updatedHistory.filter(p => !p.ohlc);
+            if (candleStickReadyHistory.length >= CANDLESTICK_INTERVAL) {
+                const candleData = candleStickReadyHistory.slice(0, CANDLESTICK_INTERVAL);
 
-            } else {
-                 return [...prevHistory.slice(0, -(CANDLESTICK_INTERVAL-1)), candleEntry].slice(-PRICE_HISTORY_LENGTH);
-            }
-          }
-          return updatedHistory;
-        } else {
-            // Area chart logic
-            if (updatedHistory.length > PRICE_HISTORY_LENGTH) {
-                return updatedHistory.slice(updatedHistory.length - PRICE_HISTORY_LENGTH);
+                const open = candleData[0].price;
+                const close = candleData[candleData.length - 1].price;
+                const high = Math.max(...candleData.map(p => p.price));
+                const low = Math.min(...candleData.map(p => p.price));
+                const candleTime = candleData[0].time;
+                
+                const candleEntry: PriceData = {
+                  time: candleTime.split(':')[0] + ':' + candleTime.split(':')[1],
+                  price: close,
+                  ohlc: [open, high, low, close]
+                };
+                
+                // Replace the processed raw data with a single candle entry
+                const remainingHistory = updatedHistory.slice(CANDLESTICK_INTERVAL);
+                
+                return [...prevHistory.filter(p=> p.ohlc), candleEntry, ...remainingHistory].slice(-PRICE_HISTORY_LENGTH);
             }
             return updatedHistory;
+        } else {
+            // Area chart logic, remove OHLC data if switching from candlestick
+            const areaHistory = updatedHistory.map(({price, time}) => ({price, time}));
+            if (areaHistory.length > PRICE_HISTORY_LENGTH) {
+                return areaHistory.slice(areaHistory.length - PRICE_HISTORY_LENGTH);
+            }
+            return areaHistory;
         }
       });
   }, [currentPrice, chartType]);
@@ -193,14 +196,12 @@ export default function TradingDashboard() {
     handleUserLogin(name);
     setIsModalOpen(false);
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem("bitsim_username");
-    setUsername(null);
-    setUsdBalance(DEFAULT_USD_BALANCE);
-    setBtcBalance(0);
-    setPriceHistory([]);
-    setIsModalOpen(true);
+  
+  const handleFeedback = () => {
+    toast({
+        title: "Feedback Submitted",
+        description: "Thank you for your feedback!",
+      });
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
@@ -219,6 +220,10 @@ export default function TradingDashboard() {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
       setIsTrading(false);
       return;
+    }
+
+    if (type === "sell") {
+        await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     try {
@@ -276,8 +281,9 @@ export default function TradingDashboard() {
                 <User className="h-4 w-4" />
                 <span>{username}</span>
              </div>
-             <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
-                <LogOut className="h-4 w-4" />
+             <Button variant="outline" size="sm" onClick={handleFeedback}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Feedback
              </Button>
           </div>
         )}
