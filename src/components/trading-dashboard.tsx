@@ -40,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { get, ref, set } from "firebase/database";
@@ -59,6 +58,13 @@ type TradeFormValues = z.infer<typeof formSchema>;
 const INITIAL_PRICE = 65000;
 const DEFAULT_USD_BALANCE = 1000;
 const PRICE_HISTORY_LENGTH = 50;
+const CANDLESTICK_INTERVAL = 5; // Aggregate data every 5 ticks
+
+interface PriceData { 
+    time: string; 
+    price: number;
+    ohlc?: [number, number, number, number];
+}
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
@@ -69,7 +75,8 @@ export default function TradingDashboard() {
   const [usdBalance, setUsdBalance] = useState(DEFAULT_USD_BALANCE);
   const [btcBalance, setBtcBalance] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
-  const [priceHistory, setPriceHistory] = useState<{ time: string; price: number }[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
+  const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
 
   const { toast } = useToast();
 
@@ -106,17 +113,51 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     setPriceHistory((prevHistory) => {
-      const newEntry = {
-        time: new Date().toLocaleTimeString(),
-        price: currentPrice,
-      };
-      const updatedHistory = [...prevHistory, newEntry];
-      if (updatedHistory.length > PRICE_HISTORY_LENGTH) {
-        return updatedHistory.slice(updatedHistory.length - PRICE_HISTORY_LENGTH);
-      }
-      return updatedHistory;
-    });
-  }, [currentPrice]);
+        const newTime = new Date();
+        const newEntry: PriceData = {
+          time: newTime.toLocaleTimeString(),
+          price: currentPrice,
+        };
+    
+        let updatedHistory = [...prevHistory, newEntry];
+    
+        if (chartType === 'candlestick') {
+          const totalPoints = updatedHistory.length;
+          if (totalPoints >= CANDLESTICK_INTERVAL) {
+            const lastCandleTime = updatedHistory[totalPoints - CANDLESTICK_INTERVAL].time;
+            const candleData = updatedHistory.slice(-CANDLESTICK_INTERVAL);
+            const open = candleData[0].price;
+            const close = candleData[candleData.length - 1].price;
+            const high = Math.max(...candleData.map(p => p.price));
+            const low = Math.min(...candleData.map(p => p.price));
+            
+            const candleEntry: PriceData = {
+              time: lastCandleTime.split(':')[0] + ':' + lastCandleTime.split(':')[1],
+              price: close,
+              ohlc: [open, high, low, close]
+            };
+    
+            // If the last entry is already a candle, update it. Otherwise, add a new one.
+            const lastEntry = prevHistory[prevHistory.length -1];
+            if (lastEntry && lastEntry.ohlc) {
+                // This logic is tricky, for now we just replace the last N points with one candle
+                const nonCandleHistory = prevHistory.filter(p => !p.ohlc);
+                return [...nonCandleHistory.slice(0, -(CANDLESTICK_INTERVAL-1)), candleEntry].slice(-PRICE_HISTORY_LENGTH);
+
+            } else {
+                 return [...prevHistory.slice(0, -(CANDLESTICK_INTERVAL-1)), candleEntry].slice(-PRICE_HISTORY_LENGTH);
+            }
+          }
+          return updatedHistory;
+        } else {
+            // Area chart logic
+            if (updatedHistory.length > PRICE_HISTORY_LENGTH) {
+                return updatedHistory.slice(updatedHistory.length - PRICE_HISTORY_LENGTH);
+            }
+            return updatedHistory;
+        }
+      });
+  }, [currentPrice, chartType]);
 
   const handleUserLogin = async (name: string) => {
     setUsername(name);
@@ -214,6 +255,7 @@ export default function TradingDashboard() {
       });
 
     } catch (error) {
+        console.error(error);
       toast({ variant: "destructive", title: "Trade Error", description: "Could not simulate trade." });
     } finally {
       setIsTrading(false);
@@ -248,7 +290,7 @@ export default function TradingDashboard() {
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           <div className="lg:col-span-2 h-[50vh] lg:h-auto">
-            <PriceChart data={priceHistory} currentPrice={currentPrice} />
+            <PriceChart data={priceHistory} currentPrice={currentPrice} chartType={chartType} />
           </div>
 
           <div className="flex flex-col gap-6">
@@ -321,6 +363,20 @@ export default function TradingDashboard() {
                         </FormItem>
                       )}
                     />
+                     <FormItem>
+                        <FormLabel>Chart Type</FormLabel>
+                        <Select onValueChange={(value: 'area' | 'candlestick') => setChartType(value)} defaultValue={chartType}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select chart type" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="area">Area</SelectItem>
+                            <SelectItem value="candlestick">Candlestick</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
                     <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))} disabled={isTrading}>

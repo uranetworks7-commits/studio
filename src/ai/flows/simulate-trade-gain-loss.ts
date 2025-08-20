@@ -71,17 +71,19 @@ const simulateTradeGainLossPrompt = ai.definePrompt({
   output: {schema: SimulateTradeGainLossOutputSchema},
   prompt: `You are simulating a Bitcoin trade. Given the current price of Bitcoin at {{{currentPrice}}}, the trade amount of {{{amount}}}, and a volatility profile, determine the new price and calculate the gain or loss.
 
-Use the adjustVolatility tool to adjust the intensity of price fluctuations based on the selected volatility profile.
-Volatility Profile: {{{volatilityProfile}}}
+The user has set the volatility profile to: {{{volatilityProfile}}}. Use the adjustVolatility tool to get the correct volatility factor.
 
-Consider the volatility profile when simulating the price change. Higher volatility should result in more significant price swings.
+The current price is {{{currentPrice}}}.
+The amount being traded is {{{amount}}} BTC.
 
-Calculate the gain or loss based on the change in price relative to the trade amount.
+Simulate a new price. The new price should be based on the current price and the volatility.
+A random factor should be included to simulate market unpredictability. The formula for the new price should be:
+newPrice = currentPrice * (1 + (Math.random() - 0.5) * volatilityFactor)
 
-New Price:  Use a bit of randomness to simulate real conditions, but be realistic.
-Gain/Loss:  Calculate based on (New Price - Current Price) * Amount.
+Calculate the gain or loss based on the change in price. The formula is:
+gainLoss = (newPrice - currentPrice) * amount
 
-Output in JSON format.
+Provide the output in the format specified.
 `,
 });
 
@@ -92,7 +94,13 @@ const simulateTradeGainLossFlow = ai.defineFlow(
     outputSchema: SimulateTradeGainLossOutputSchema,
   },
   async input => {
-    const {output} = await simulateTradeGainLossPrompt(input);
-    return output!;
+    const volatilityFactor = await adjustVolatility({volatilityProfile: input.volatilityProfile});
+    const newPrice = input.currentPrice * (1 + (Math.random() - 0.5) * volatilityFactor);
+    const gainLoss = (newPrice - input.currentPrice) * input.amount;
+
+    return {
+        newPrice,
+        gainLoss
+    };
   }
 );
