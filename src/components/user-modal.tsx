@@ -35,7 +35,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
     <Dialog open={open}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Welcome to URA Trade</DialogTitle>
+          <DialogTitle className="font-headline">Welcome to URA Trade Pro</DialogTitle>
           <DialogDescription>
             Please enter a username to start your trading simulation.
           </DialogDescription>

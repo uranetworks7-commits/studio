@@ -354,7 +354,7 @@ export default function TradingDashboard() {
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
+            <h1 className="text-2xl font-headline font-bold text-primary">URA Trade Pro</h1>
             <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
                 <span>Market:</span>
                 <span className="font-bold text-foreground">{marketState}</span>
@@ -474,5 +474,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
