@@ -75,7 +75,7 @@ export default function TradingDashboard() {
   const [isTrading, setIsTrading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [usdBalance, setUsdBalance] = useState(DEFAULT_USD_BALANCE);
+  const [usdBalance, setUsdBalance] = useState<number | undefined>(undefined);
   const [btcBalance, setBtcBalance] = useState(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
@@ -101,6 +101,7 @@ export default function TradingDashboard() {
       handleUserLogin(storedUsername);
     } else {
       setIsModalOpen(true);
+      setIsLoading(false);
     }
   }, []);
 
@@ -151,6 +152,7 @@ export default function TradingDashboard() {
   }, [username, marketState]);
 
   useEffect(() => {
+    if (!username) return;
     setPriceHistory((prevHistory) => {
         const newTime = new Date();
         const newEntry: PriceData = {
@@ -192,7 +194,7 @@ export default function TradingDashboard() {
             return areaHistory;
         }
       });
-  }, [currentPrice, chartType]);
+  }, [currentPrice, chartType, username]);
 
   const handleUserLogin = async (name: string) => {
     setIsLoading(true);
@@ -246,6 +248,11 @@ export default function TradingDashboard() {
     localStorage.removeItem("bitsim_username");
     setLoginError(null);
     setIsModalOpen(true);
+    // Reset balances
+    setUsdBalance(undefined);
+    setBtcBalance(0);
+    setDailyGain(0);
+    setDailyLoss(0);
   };
 
   const handleFeedback = () => {
@@ -282,7 +289,7 @@ export default function TradingDashboard() {
     setIsTrading(true);
     const { amount: amountInUsd } = values;
 
-    if (type === "buy" && amountInUsd > usdBalance) {
+    if (type === "buy" && amountInUsd > (usdBalance || 0)) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
       setIsTrading(false);
       return;
@@ -307,10 +314,10 @@ export default function TradingDashboard() {
     
     let newUsd, newBtc;
     if (type === "buy") {
-      newUsd = usdBalance - amountInUsd;
+      newUsd = (usdBalance || 0) - amountInUsd;
       newBtc = btcBalance + amountInBtc;
     } else {
-      newUsd = usdBalance + amountInUsd;
+      newUsd = (usdBalance || 0) + amountInUsd;
       newBtc = btcBalance - amountInBtc;
     }
     
@@ -344,7 +351,7 @@ export default function TradingDashboard() {
     setIsTrading(false);
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const portfolioValue = (usdBalance || 0) + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
 
   if (isModalOpen || (!username && isLoading)) {
@@ -379,7 +386,7 @@ export default function TradingDashboard() {
         )}
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
-        {isLoading ? (
+        {isLoading || !username ? (
             <div className="flex justify-center items-center h-full">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
             </div>
@@ -405,7 +412,7 @@ export default function TradingDashboard() {
                         <Landmark className="h-5 w-5 text-primary" />
                         <span>USD Balance</span>
                     </div>
-                  <span>${usdBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span>${(usdBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -480,4 +487,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
