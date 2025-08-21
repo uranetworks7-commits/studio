@@ -1,3 +1,4 @@
+
 "use client";
 
 import { simulateTradeGainLoss } from "@/ai/flows/simulate-trade-gain-loss";
@@ -251,53 +252,68 @@ export default function TradingDashboard() {
         await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
+    let result;
     try {
-      const result = await simulateTradeGainLoss({
+      // First, try the AI-powered simulation
+      result = await simulateTradeGainLoss({
         amount: amountInBtc,
         currentPrice: currentPrice,
         volatilityProfile: volatility,
       });
 
-      let newUsd, newBtc;
-      if (type === "buy") {
-        newUsd = usdBalance - amountInUsd;
-        newBtc = btcBalance + amountInBtc;
-      } else {
-        newUsd = usdBalance + amountInUsd;
-        newBtc = btcBalance - amountInBtc;
-      }
-      
-      const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
-      const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
-
-      setUsdBalance(newUsd);
-      setBtcBalance(newBtc);
-      setDailyGain(newDailyGain);
-      setDailyLoss(newDailyLoss);
-      setCurrentPrice(result.newPrice);
-
-      await set(ref(db, `users/${username}`), {
-        usdBalance: newUsd,
-        btcBalance: newBtc,
-        dailyGain: newDailyGain,
-        dailyLoss: newDailyLoss,
-        lastTradeDate: new Date().toISOString().split('T')[0],
-      });
-      
-      const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
-      
-      toast({
-        variant: result.gainLoss >= 0 ? "default" : "destructive",
-        title: `Trade Successful`,
-        description: `Your ${type} order resulted in an instant ${gainLossText}.`,
-      });
-
     } catch (error) {
-        console.error(error);
-      toast({ variant: "destructive", title: "Trade Error", description: "Could not simulate trade." });
-    } finally {
-      setIsTrading(false);
+        console.error("AI Trade Simulation Error:", error);
+        toast({
+          variant: "destructive",
+          title: "AI Error",
+          description: "Could not use AI simulation. Using fallback. Please check your API key.",
+        });
+        
+        // Fallback to a simpler, non-AI simulation if the above fails
+        const volatilityMap = { low: 0.01, medium: 0.03, high: 0.06 };
+        const changePercent = (Math.random() - 0.5) * 2 * volatilityMap[volatility];
+        const newPrice = currentPrice * (1 + changePercent);
+        const gainLoss = (newPrice - currentPrice) * amountInBtc;
+
+        result = { newPrice, gainLoss };
+    } 
+    
+    // Process the trade result (from either AI or fallback)
+    let newUsd, newBtc;
+    if (type === "buy") {
+      newUsd = usdBalance - amountInUsd;
+      newBtc = btcBalance + amountInBtc;
+    } else {
+      newUsd = usdBalance + amountInUsd;
+      newBtc = btcBalance - amountInBtc;
     }
+    
+    const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
+    const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
+
+    setUsdBalance(newUsd);
+    setBtcBalance(newBtc);
+    setDailyGain(newDailyGain);
+    setDailyLoss(newDailyLoss);
+    setCurrentPrice(result.newPrice);
+
+    await set(ref(db, `users/${username}`), {
+      usdBalance: newUsd,
+      btcBalance: newBtc,
+      dailyGain: newDailyGain,
+      dailyLoss: newDailyLoss,
+      lastTradeDate: new Date().toISOString().split('T')[0],
+    });
+    
+    const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
+    
+    toast({
+      variant: result.gainLoss >= 0 ? "default" : "destructive",
+      title: `Trade Successful`,
+      description: `Your ${type} order resulted in an instant ${gainLossText}.`,
+    });
+    
+    setIsTrading(false);
   };
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
@@ -444,3 +460,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
