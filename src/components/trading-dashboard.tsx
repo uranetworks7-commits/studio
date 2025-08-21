@@ -285,13 +285,15 @@ export default function TradingDashboard() {
     setDailyLoss(newDailyLoss);
     setCurrentPrice(result.newPrice);
 
-    await set(ref(db, `users/${username}`), {
-      usdBalance: newUsd,
-      btcBalance: newBtc,
-      dailyGain: newDailyGain,
-      dailyLoss: newDailyLoss,
-      lastTradeDate: new Date().toISOString().split('T')[0],
-    });
+    if (username) {
+        await set(ref(db, `users/${username}`), {
+          usdBalance: newUsd,
+          btcBalance: newBtc,
+          dailyGain: newDailyGain,
+          dailyLoss: newDailyLoss,
+          lastTradeDate: new Date().toISOString().split('T')[0],
+        });
+    }
     
     const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
     
@@ -312,7 +314,7 @@ export default function TradingDashboard() {
   return (
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
-        <h1 className="text-2xl font-headline font-bold text-primary">URA Trade</h1>
+        <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
         {username && (
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'URA Trade',
+  title: 'BitSim RealTrade',
   description: 'A Bitcoin Trading Simulation',
 };
 
@@ -27,3 +27,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    
