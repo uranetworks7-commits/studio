@@ -207,7 +207,7 @@ export default function TradingDashboard() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setUsdBalance(data.usdBalance);
-        setBtcBalance(data.btcBalance);
+        setBtcBalance(data.btcBalance || 0);
 
         if (data.lastTradeDate === today) {
             setDailyGain(data.dailyGain || 0);
@@ -386,7 +386,7 @@ export default function TradingDashboard() {
         )}
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
-        {isLoading || !username ? (
+        {isLoading ? (
             <div className="flex justify-center items-center h-full">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
             </div>
