@@ -9,8 +9,6 @@ import {
   Landmark,
   Loader2,
   MessageSquare,
-  TrendingDown,
-  TrendingUp,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -309,7 +307,7 @@ export default function TradingDashboard() {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="p-4 border-b flex justify-between items-center">
+      <header className="p-4 border-b flex justify-between items-center shrink-0">
         <h1 className="text-2xl font-headline font-bold text-primary">URA Trade</h1>
         {username && (
           <div className="flex items-center gap-4">
@@ -331,11 +329,11 @@ export default function TradingDashboard() {
             </div>
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          <div className="lg:col-span-2 h-[50vh] lg:h-auto">
+          <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
             <PriceChart data={priceHistory} currentPrice={currentPrice} chartType={chartType} />
           </div>
 
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 lg:max-h-full lg:overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle className="font-headline">Portfolio</CardTitle>
@@ -446,5 +444,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    

@@ -38,55 +38,22 @@ export async function simulateTradeGainLoss(
   return simulateTradeGainLossFlow(input);
 }
 
-const adjustVolatility = ai.defineTool(
-  {
-    name: 'adjustVolatility',
-    description:
-      'Adjusts the intensity of price fluctuations based on the selected volatility profile.',
-    inputSchema: z.object({
-      volatilityProfile: z
-        .enum(['low', 'medium', 'high'])
-        .describe('The desired volatility profile: low, medium, or high.'),
-    }),
-    outputSchema: z.number().describe('The volatility factor to apply.'),
-  },
-  async input => {
-    switch (input.volatilityProfile) {
-      case 'low':
-        return 0.01; // 1% volatility
-      case 'medium':
-        return 0.05; // 5% volatility
-      case 'high':
-        return 0.10; // 10% volatility
-      default:
-        return 0.05; // Default to medium volatility
-    }
-  }
-);
-
 const simulateTradeGainLossPrompt = ai.definePrompt({
   name: 'simulateTradeGainLossPrompt',
-  tools: [adjustVolatility],
   input: {schema: SimulateTradeGainLossInputSchema},
   output: {schema: SimulateTradeGainLossOutputSchema},
-  prompt: `You are simulating a Bitcoin trade to create a easy-to-moderate difficulty experience. Given the current price of Bitcoin at {{{currentPrice}}}, the trade amount of {{{amount}}}, and a volatility profile, determine the new price and calculate the gain or loss.
+  prompt: `You are a Bitcoin trade simulator. Your difficulty is "easy-to-moderate".
+Given a trade amount, current price, and volatility, determine the new price and the gain/loss.
 
-The user has set the volatility profile to: {{{volatilityProfile}}}. Use the adjustVolatility tool to get the correct volatility factor.
+Volatility: {{{volatilityProfile}}}
+Current Price: {{{currentPrice}}}
+Amount (BTC): {{{amount}}}
 
-The current price is {{{currentPrice}}}.
-The amount being traded is {{{amount}}} BTC.
+Simulate a new price. The market should have periods of growth, decline, and stability.
+Occasionally, introduce a significant price swing (either a heavy gain or a heavy loss, 2-3 times more than usual volatility).
 
-Simulate a new price with realistic but challenging market behavior. The market should have periods of continuous growth, decline, and stability. Occasionally, introduce a significant price swing (either a heavy gain or a heavy loss, 2-3 times more than usual volatility) to test the user.
-
-The formula for the new price should be:
-newPrice = currentPrice * (1 + (Math.random() - 0.45) * volatilityFactor * marketTrend)
-- A random "market event" factor (a small chance of a large multiplier on volatility).
-- A "market trend" that can be positive (uptrend), negative (downtrend), or neutral.
-
-Calculate the gain or loss based on the change in price. The formula is:
-gainLoss = (newPrice - currentPrice) * amount
-
-Provide the output in the format specified.
+Calculate the gain or loss: (newPrice - currentPrice) * amount.
+Respond in the format specified.
 `,
 });
 
@@ -97,38 +64,7 @@ const simulateTradeGainLossFlow = ai.defineFlow(
     outputSchema: SimulateTradeGainLossOutputSchema,
   },
   async input => {
-    const volatilityFactor = await adjustVolatility({volatilityProfile: input.volatilityProfile});
-    
-    // Introduce more complex market simulation
-    const randomFactor = Math.random(); // 0 to 1
-    let marketTrend; // -1 for downtrend, 1 for uptrend, 0 for stable
-    let eventMultiplier = 1;
-
-    // 10% chance of a strong trend
-    if (randomFactor < 0.05) {
-        marketTrend = 1.5; // Strong uptrend
-    } else if (randomFactor < 0.10) {
-        marketTrend = -1.5; // Strong downtrend
-    } else if (randomFactor < 0.40) {
-        marketTrend = 1; // Normal uptrend
-    } else if (randomFactor < 0.70) {
-        marketTrend = -1; // Normal downtrend
-    } else {
-        marketTrend = 0.5; // More stable/slight uptrend
-    }
-
-    // 10% chance of a major market event (big gain/loss)
-    if (Math.random() < 0.1) {
-        eventMultiplier = 2 + Math.random(); // 2x to 3x volatility
-    }
-    
-    const priceChange = (Math.random() - 0.45) * volatilityFactor * marketTrend * eventMultiplier;
-    const newPrice = input.currentPrice * (1 + priceChange);
-    const gainLoss = (newPrice - input.currentPrice) * input.amount;
-
-    return {
-        newPrice,
-        gainLoss
-    };
+    const result = await simulateTradeGainLossPrompt(input);
+    return result.output!;
   }
 );
