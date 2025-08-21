@@ -65,6 +65,8 @@ interface PriceData {
     ohlc?: [number, number, number, number];
 }
 
+type MarketState = "STABLE" | "TREND_UP" | "TREND_DOWN" | "VOLATILE";
+
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,7 +81,8 @@ export default function TradingDashboard() {
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
-  const [priceTrend, setPriceTrend] = useState(0); // For simulating trends
+  
+  const [marketState, setMarketState] = useState<MarketState>("STABLE");
 
   const { toast } = useToast();
 
@@ -101,23 +104,49 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     if (!username) return;
-
-    const interval = setInterval(() => {
-        // Adjust trend randomly
-        if (Math.random() < 0.1) { // 10% chance to change trend
-            setPriceTrend(Math.random() * 2 - 1); // -1 to 1
+  
+    // This interval changes the market state periodically.
+    const marketStateInterval = setInterval(() => {
+      const states: MarketState[] = ["STABLE", "TREND_UP", "TREND_DOWN", "VOLATILE"];
+      const nextState = states[Math.floor(Math.random() * states.length)];
+      setMarketState(nextState);
+    }, 15000); // Change market state every 15 seconds
+  
+    // This interval updates the price based on the current market state.
+    const priceUpdateInterval = setInterval(() => {
+      setCurrentPrice((prevPrice) => {
+        let changePercent = 0;
+  
+        switch (marketState) {
+          case "STABLE":
+            changePercent = (Math.random() - 0.5) * 0.002; // Very small fluctuations
+            break;
+          case "TREND_UP":
+            changePercent = (Math.random() * 0.005) + 0.001; // Consistent small gains
+            break;
+          case "TREND_DOWN":
+            changePercent = (Math.random() * -0.005) - 0.001; // Consistent small losses
+            break;
+          case "VOLATILE":
+            changePercent = (Math.random() - 0.5) * 0.02; // Larger, unpredictable swings
+            break;
+        }
+        
+        // Add a small chance for a "black swan" event for excitement
+        if (Math.random() < 0.02) {
+            changePercent *= 5;
         }
 
-        setCurrentPrice((prevPrice) => {
-            const baseChange = (Math.random() - 0.49) * 0.005; // Base fluctuation
-            const trendEffect = priceTrend * 0.005; // Trend influence
-            const newPrice = prevPrice * (1 + baseChange + trendEffect);
-            return newPrice;
-        });
+        const newPrice = prevPrice * (1 + changePercent);
+        return newPrice > 0 ? newPrice : prevPrice; // Prevent price from going to zero
+      });
     }, 2000);
-
-    return () => clearInterval(interval);
-  }, [username, priceTrend]);
+  
+    return () => {
+      clearInterval(marketStateInterval);
+      clearInterval(priceUpdateInterval);
+    };
+  }, [username, marketState]);
 
   useEffect(() => {
     setPriceHistory((prevHistory) => {
@@ -228,13 +257,21 @@ export default function TradingDashboard() {
   }
 
   const runSimpleTradeSimulation = (amountInBtc: number) => {
-      // More pronounced but simple volatility simulation
-      const volatility = 0.05; // 5% base volatility
-      let changePercent = (Math.random() - 0.5) * 2 * volatility; // -5% to +5%
-
-      // 10% chance of a major price swing
-      if (Math.random() < 0.1) {
-          changePercent *= (Math.random() * 2 + 2); // Multiply by 2x to 4x
+      // The trade simulation now reflects the current market state.
+      let changePercent = 0;
+      switch (marketState) {
+          case "STABLE":
+              changePercent = (Math.random() - 0.5) * 0.005; // Less slippage in stable market
+              break;
+          case "TREND_UP":
+              changePercent = (Math.random() * 0.008); // Price might slip upwards
+              break;
+          case "TREND_DOWN":
+              changePercent = (Math.random() * -0.008); // Price might slip downwards
+              break;
+          case "VOLATILE":
+              changePercent = (Math.random() - 0.5) * 0.03; // High slippage
+              break;
       }
       
       const newPrice = currentPrice * (1 + changePercent);
@@ -262,7 +299,9 @@ export default function TradingDashboard() {
     
     // Simulate sell delay
     if (type === "sell") {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+        await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     const result = runSimpleTradeSimulation(amountInBtc);
@@ -314,7 +353,13 @@ export default function TradingDashboard() {
   return (
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
-        <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
+        <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
+            <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                <span>Market:</span>
+                <span className="font-bold text-foreground">{marketState}</span>
+            </div>
+        </div>
         {username && (
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -430,4 +475,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
