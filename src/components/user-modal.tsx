@@ -31,8 +31,8 @@ export function UserModal({ open, onSave, error: initialError }: UserModalProps)
   }, [initialError])
 
   const handleSave = () => {
-    if (username.trim().length < 3) {
-      setError("Username must be at least 3 characters long.");
+    if (username.trim().length < 2) {
+      setError("Username must be at least 2 characters long.");
       return;
     }
     setError("");
@@ -70,5 +70,3 @@ export function UserModal({ open, onSave, error: initialError }: UserModalProps)
     </Dialog>
   );
 }
-
-    
