@@ -223,18 +223,29 @@ export default function TradingDashboard() {
                 lastTradeDate: today,
             });
         }
-        setUsername(name);
-        localStorage.setItem("bitsim_username", name);
-        setIsModalOpen(false);
       } else {
-        setLoginError("Username not found. Please try a different name.");
-        setIsModalOpen(true);
+        // Create new user with default balance
+        const newUser = {
+            usdBalance: DEFAULT_USD_BALANCE,
+            btcBalance: 0,
+            dailyGain: 0,
+            dailyLoss: 0,
+            lastTradeDate: today,
+        };
+        await set(userRef, newUser);
+        setUsdBalance(newUser.usdBalance);
+        setBtcBalance(newUser.btcBalance);
+        setDailyGain(newUser.dailyGain);
+        setDailyLoss(newUser.dailyLoss);
       }
+      setUsername(name);
+      localStorage.setItem("bitsim_username", name);
+      setIsModalOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Firebase Error",
-        description: "Could not verify user.",
+        description: "Could not verify or create user.",
       });
        setLoginError("Could not connect to the server to verify username.");
        setIsModalOpen(true);
@@ -487,3 +498,4 @@ export default function TradingDashboard() {
   );
 }
 
+    
