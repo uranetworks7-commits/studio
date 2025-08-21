@@ -42,7 +42,7 @@ const simulateTradeGainLossPrompt = ai.definePrompt({
   name: 'simulateTradeGainLossPrompt',
   input: {schema: SimulateTradeGainLossInputSchema},
   output: {schema: SimulateTradeGainLossOutputSchema},
-  prompt: `You are a Bitcoin trade simulator. Your difficulty is "easy-to-moderate".
+  prompt: `You are a Bitcoin trade simulator. Your difficulty is "moderate".
 Given a trade amount, current price, and volatility, determine the new price and the gain/loss.
 
 Volatility: {{{volatilityProfile}}}

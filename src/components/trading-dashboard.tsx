@@ -333,7 +333,7 @@ export default function TradingDashboard() {
             <PriceChart data={priceHistory} currentPrice={currentPrice} chartType={chartType} />
           </div>
 
-          <div className="flex flex-col gap-6 lg:max-h-full lg:overflow-y-auto">
+          <div className="flex flex-col gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="font-headline">Portfolio</CardTitle>
