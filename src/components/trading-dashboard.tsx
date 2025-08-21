@@ -110,7 +110,7 @@ export default function TradingDashboard() {
       const states: MarketState[] = ["STABLE", "TREND_UP", "TREND_DOWN", "VOLATILE"];
       const nextState = states[Math.floor(Math.random() * states.length)];
       setMarketState(nextState);
-    }, 15000); // Change market state every 15 seconds
+    }, 30000); // Change market state every 30 seconds
   
     // This interval updates the price based on the current market state.
     const priceUpdateInterval = setInterval(() => {
@@ -128,12 +128,12 @@ export default function TradingDashboard() {
             changePercent = (Math.random() * -0.005) - 0.001; // Consistent small losses
             break;
           case "VOLATILE":
-            changePercent = (Math.random() - 0.5) * 0.02; // Larger, unpredictable swings
+            changePercent = (Math.random() - 0.5) * 0.01; // Reduced from 0.02 for less chaos
             break;
         }
         
         // Add a small chance for a "black swan" event for excitement
-        if (Math.random() < 0.02) {
+        if (Math.random() < 0.01) { // Reduced from 0.02
             changePercent *= 5;
         }
 
@@ -475,3 +475,4 @@ export default function TradingDashboard() {
   );
 }
 
+    
