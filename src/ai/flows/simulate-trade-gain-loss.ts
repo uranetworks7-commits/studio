@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Simulates realistic Bitcoin trade gain/loss scenarios based on simplified virtual market conditions.
@@ -66,12 +67,7 @@ const simulateTradeGainLossFlow = ai.defineFlow(
   async input => {
     // If there's no API key, bypass the AI call and use a simple fallback.
     if (!process.env.GEMINI_API_KEY) {
-      const { amount, currentPrice, volatilityProfile } = input;
-      const volatilityMap = { low: 0.01, medium: 0.03, high: 0.06 };
-      const changePercent = (Math.random() - 0.5) * 2 * volatilityMap[volatilityProfile];
-      const newPrice = currentPrice * (1 + changePercent);
-      const gainLoss = (newPrice - currentPrice) * amount;
-      return { newPrice, gainLoss };
+      throw new Error("Missing GEMINI_API_KEY");
     }
 
     const result = await simulateTradeGainLossPrompt(input);

@@ -257,24 +257,18 @@ export default function TradingDashboard() {
     }
 
     let result;
+    let tradeError = false;
     try {
-      if (hasApiKey) {
-        // Only try the AI-powered simulation if the key is present
         result = await simulateTradeGainLoss({
           amount: amountInBtc,
           currentPrice: currentPrice,
           volatilityProfile: volatility,
         });
-      } else {
-        // Immediately use the fallback if no key is detected
-        throw new Error("No API key. Using fallback simulation.");
-      }
-
     } catch (error) {
+        tradeError = true;
         console.warn("AI Trade Simulation Warning:", error);
         
         if (hasApiKey) {
-            // If we have a key but it failed, show an error.
              toast({
               variant: "destructive",
               title: "AI Error",
@@ -282,7 +276,6 @@ export default function TradingDashboard() {
             });
         }
         
-        // Fallback to a simpler, non-AI simulation
         const volatilityMap = { low: 0.01, medium: 0.03, high: 0.06 };
         const changePercent = (Math.random() - 0.5) * 2 * volatilityMap[volatility];
         const newPrice = currentPrice * (1 + changePercent);
@@ -291,7 +284,6 @@ export default function TradingDashboard() {
         result = { newPrice, gainLoss };
     } 
     
-    // Process the trade result (from either AI or fallback)
     let newUsd, newBtc;
     if (type === "buy") {
       newUsd = usdBalance - amountInUsd;
@@ -318,13 +310,15 @@ export default function TradingDashboard() {
       lastTradeDate: new Date().toISOString().split('T')[0],
     });
     
-    const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
-    
-    toast({
-      variant: result.gainLoss >= 0 ? "default" : "destructive",
-      title: `Trade Successful`,
-      description: `Your ${type} order resulted in an instant ${gainLossText}.`,
-    });
+    if (!tradeError) {
+      const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
+      
+      toast({
+        variant: result.gainLoss >= 0 ? "default" : "destructive",
+        title: `Trade Successful`,
+        description: `Your ${type} order resulted in an instant ${gainLossText}.`,
+      });
+    }
     
     setIsTrading(false);
   };
@@ -473,6 +467,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
-    
