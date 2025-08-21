@@ -9,6 +9,8 @@ import {
   Landmark,
   Loader2,
   MessageSquare,
+  TrendingDown,
+  TrendingUp,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -74,6 +76,9 @@ export default function TradingDashboard() {
 
   const [usdBalance, setUsdBalance] = useState(DEFAULT_USD_BALANCE);
   const [btcBalance, setBtcBalance] = useState(0);
+  const [dailyGain, setDailyGain] = useState(0);
+  const [dailyLoss, setDailyLoss] = useState(0);
+
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
@@ -168,17 +173,39 @@ export default function TradingDashboard() {
     try {
       const userRef = ref(db, `users/${name}`);
       const snapshot = await get(userRef);
+      const today = new Date().toISOString().split("T")[0];
+
       if (snapshot.exists()) {
         const data = snapshot.val();
         setUsdBalance(data.usdBalance);
         setBtcBalance(data.btcBalance);
+
+        if (data.lastTradeDate === today) {
+            setDailyGain(data.dailyGain || 0);
+            setDailyLoss(data.dailyLoss || 0);
+        } else {
+            // New day, reset daily stats
+            setDailyGain(0);
+            setDailyLoss(0);
+            await set(ref(db, `users/${name}`), {
+                ...data,
+                dailyGain: 0,
+                dailyLoss: 0,
+                lastTradeDate: today,
+            });
+        }
       } else {
         await set(userRef, {
           usdBalance: DEFAULT_USD_BALANCE,
           btcBalance: 0,
+          dailyGain: 0,
+          dailyLoss: 0,
+          lastTradeDate: today,
         });
         setUsdBalance(DEFAULT_USD_BALANCE);
         setBtcBalance(0);
+        setDailyGain(0);
+        setDailyLoss(0);
       }
       localStorage.setItem("bitsim_username", name);
     } catch (error) {
@@ -242,13 +269,21 @@ export default function TradingDashboard() {
         newBtc = btcBalance - amountInBtc;
       }
       
+      const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
+      const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
+
       setUsdBalance(newUsd);
       setBtcBalance(newBtc);
+      setDailyGain(newDailyGain);
+      setDailyLoss(newDailyLoss);
       setCurrentPrice(result.newPrice);
 
       await set(ref(db, `users/${username}`), {
         usdBalance: newUsd,
         btcBalance: newBtc,
+        dailyGain: newDailyGain,
+        dailyLoss: newDailyLoss,
+        lastTradeDate: new Date().toISOString().split('T')[0],
       });
       
       const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
@@ -268,6 +303,7 @@ export default function TradingDashboard() {
   };
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const todaysPL = dailyGain - dailyLoss;
 
   if (isLoading && !username) return <UserModal open={isModalOpen} onSave={saveUsername} />;
 
@@ -323,6 +359,12 @@ export default function TradingDashboard() {
                         <span>BTC Balance</span>
                     </div>
                   <span>{btcBalance.toFixed(8)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t mt-2">
+                  <span className="text-muted-foreground">Today's P/L</span>
+                  <span className={`font-bold ${todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {todaysPL >= 0 ? '+' : '-'}${Math.abs(todaysPL).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -404,3 +446,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
