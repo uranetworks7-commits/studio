@@ -67,6 +67,10 @@ interface PriceData {
     ohlc?: [number, number, number, number];
 }
 
+// A simple client-side check. In a real app, you might have a dedicated endpoint
+// or other mechanism to securely check server-side env var status.
+const hasApiKey = process.env.NEXT_PUBLIC_HAS_GEMINI_API_KEY === 'true';
+
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -254,22 +258,31 @@ export default function TradingDashboard() {
 
     let result;
     try {
-      // First, try the AI-powered simulation
-      result = await simulateTradeGainLoss({
-        amount: amountInBtc,
-        currentPrice: currentPrice,
-        volatilityProfile: volatility,
-      });
+      if (hasApiKey) {
+        // Only try the AI-powered simulation if the key is present
+        result = await simulateTradeGainLoss({
+          amount: amountInBtc,
+          currentPrice: currentPrice,
+          volatilityProfile: volatility,
+        });
+      } else {
+        // Immediately use the fallback if no key is detected
+        throw new Error("No API key. Using fallback simulation.");
+      }
 
     } catch (error) {
-        console.error("AI Trade Simulation Error:", error);
-        toast({
-          variant: "destructive",
-          title: "AI Error",
-          description: "Could not use AI simulation. Using fallback. Please check your API key.",
-        });
+        console.warn("AI Trade Simulation Warning:", error);
         
-        // Fallback to a simpler, non-AI simulation if the above fails
+        if (hasApiKey) {
+            // If we have a key but it failed, show an error.
+             toast({
+              variant: "destructive",
+              title: "AI Error",
+              description: "Could not use AI simulation. Using fallback. Please check your API key.",
+            });
+        }
+        
+        // Fallback to a simpler, non-AI simulation
         const volatilityMap = { low: 0.01, medium: 0.03, high: 0.06 };
         const changePercent = (Math.random() - 0.5) * 2 * volatilityMap[volatility];
         const newPrice = currentPrice * (1 + changePercent);
@@ -461,4 +474,5 @@ export default function TradingDashboard() {
   );
 }
 
+    
     

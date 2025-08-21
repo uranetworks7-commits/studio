@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_HAS_GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'true' : 'false',
+  }
 };
 
 export default nextConfig;
+
+    
