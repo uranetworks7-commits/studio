@@ -1,7 +1,6 @@
 
 "use client";
 
-import { simulateTradeGainLoss } from "@/ai/flows/simulate-trade-gain-loss";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDown,
@@ -51,7 +50,6 @@ const formSchema = z.object({
   amount: z.coerce
     .number({ invalid_type_error: "Please enter a valid number." })
     .positive({ message: "Amount must be positive." }),
-  volatility: z.enum(["low", "medium", "high"]),
 });
 
 type TradeFormValues = z.infer<typeof formSchema>;
@@ -66,10 +64,6 @@ interface PriceData {
     price: number;
     ohlc?: [number, number, number, number];
 }
-
-// A simple client-side check. In a real app, you might have a dedicated endpoint
-// or other mechanism to securely check server-side env var status.
-const hasApiKey = process.env.NEXT_PUBLIC_HAS_GEMINI_API_KEY === 'true';
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
@@ -93,7 +87,6 @@ export default function TradingDashboard() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       amount: 100,
-      volatility: "medium",
     },
   });
 
@@ -234,9 +227,24 @@ export default function TradingDashboard() {
       });
   }
 
+  const runSimpleTradeSimulation = (amountInBtc: number) => {
+      // More pronounced but simple volatility simulation
+      const volatility = 0.05; // 5% base volatility
+      let changePercent = (Math.random() - 0.5) * 2 * volatility; // -5% to +5%
+
+      // 10% chance of a major price swing
+      if (Math.random() < 0.1) {
+          changePercent *= (Math.random() * 2 + 2); // Multiply by 2x to 4x
+      }
+      
+      const newPrice = currentPrice * (1 + changePercent);
+      const gainLoss = (newPrice - currentPrice) * amountInBtc;
+      return { newPrice, gainLoss };
+  }
+
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
     setIsTrading(true);
-    const { amount: amountInUsd, volatility } = values;
+    const { amount: amountInUsd } = values;
 
     if (type === "buy" && amountInUsd > usdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
@@ -251,38 +259,13 @@ export default function TradingDashboard() {
       setIsTrading(false);
       return;
     }
-
+    
+    // Simulate sell delay
     if (type === "sell") {
         await new Promise(resolve => setTimeout(resolve, 3000));
     }
-
-    let result;
-    let tradeError = false;
-    try {
-        result = await simulateTradeGainLoss({
-          amount: amountInBtc,
-          currentPrice: currentPrice,
-          volatilityProfile: volatility,
-        });
-    } catch (error) {
-        tradeError = true;
-        console.warn("AI Trade Simulation Warning:", error);
-        
-        if (hasApiKey) {
-             toast({
-              variant: "destructive",
-              title: "AI Error",
-              description: "Could not use AI simulation. Using fallback. Please check your API key.",
-            });
-        }
-        
-        const volatilityMap = { low: 0.01, medium: 0.03, high: 0.06 };
-        const changePercent = (Math.random() - 0.5) * 2 * volatilityMap[volatility];
-        const newPrice = currentPrice * (1 + changePercent);
-        const gainLoss = (newPrice - currentPrice) * amountInBtc;
-
-        result = { newPrice, gainLoss };
-    } 
+    
+    const result = runSimpleTradeSimulation(amountInBtc);
     
     let newUsd, newBtc;
     if (type === "buy") {
@@ -310,15 +293,13 @@ export default function TradingDashboard() {
       lastTradeDate: new Date().toISOString().split('T')[0],
     });
     
-    if (!tradeError) {
-      const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
-      
-      toast({
-        variant: result.gainLoss >= 0 ? "default" : "destructive",
-        title: `Trade Successful`,
-        description: `Your ${type} order resulted in an instant ${gainLossText}.`,
-      });
-    }
+    const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
+    
+    toast({
+      variant: result.gainLoss >= 0 ? "default" : "destructive",
+      title: `Trade Successful`,
+      description: `Your ${type} order resulted in an instant ${gainLossText}.`,
+    });
     
     setIsTrading(false);
   };
@@ -411,27 +392,6 @@ export default function TradingDashboard() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="volatility"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Volatility Profile</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select volatility" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
                      <FormItem>
                         <FormLabel>Chart Type</FormLabel>
                         <Select onValueChange={(value: 'area' | 'candlestick') => setChartType(value)} defaultValue={chartType}>
@@ -467,3 +427,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
