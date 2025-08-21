@@ -8,6 +8,7 @@ import {
   Bitcoin,
   Landmark,
   Loader2,
+  LogOut,
   MessageSquare,
   User,
 } from "lucide-react";
@@ -72,6 +73,7 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const [usdBalance, setUsdBalance] = useState(DEFAULT_USD_BALANCE);
   const [btcBalance, setBtcBalance] = useState(0);
@@ -193,8 +195,8 @@ export default function TradingDashboard() {
   }, [currentPrice, chartType]);
 
   const handleUserLogin = async (name: string) => {
-    setUsername(name);
     setIsLoading(true);
+    setLoginError(null);
     try {
       const userRef = ref(db, `users/${name}`);
       const snapshot = await get(userRef);
@@ -219,36 +221,33 @@ export default function TradingDashboard() {
                 lastTradeDate: today,
             });
         }
+        setUsername(name);
+        localStorage.setItem("bitsim_username", name);
+        setIsModalOpen(false);
       } else {
-        await set(userRef, {
-          usdBalance: DEFAULT_USD_BALANCE,
-          btcBalance: 0,
-          dailyGain: 0,
-          dailyLoss: 0,
-          lastTradeDate: today,
-        });
-        setUsdBalance(DEFAULT_USD_BALANCE);
-        setBtcBalance(0);
-        setDailyGain(0);
-        setDailyLoss(0);
+        setLoginError("Username not found. Please try a different name.");
+        setIsModalOpen(true);
       }
-      localStorage.setItem("bitsim_username", name);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Firebase Error",
-        description: "Could not fetch user data.",
+        description: "Could not verify user.",
       });
+       setLoginError("Could not connect to the server to verify username.");
+       setIsModalOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const saveUsername = (name: string) => {
-    handleUserLogin(name);
-    setIsModalOpen(false);
+  const handleLogout = () => {
+    setUsername(null);
+    localStorage.removeItem("bitsim_username");
+    setLoginError(null);
+    setIsModalOpen(true);
   };
-  
+
   const handleFeedback = () => {
     toast({
         title: "Feedback Submitted",
@@ -348,7 +347,9 @@ export default function TradingDashboard() {
   const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
 
-  if (isLoading && !username) return <UserModal open={isModalOpen} onSave={saveUsername} />;
+  if (isModalOpen || (!username && isLoading)) {
+    return <UserModal open={isModalOpen} onSave={handleUserLogin} error={loginError} />;
+  }
 
   return (
     <div className="flex flex-col h-screen">
@@ -369,6 +370,10 @@ export default function TradingDashboard() {
              <Button variant="outline" size="sm" onClick={handleFeedback}>
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Feedback
+             </Button>
+             <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
              </Button>
           </div>
         )}
@@ -474,3 +479,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    

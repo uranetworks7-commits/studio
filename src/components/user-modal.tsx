@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,11 +17,18 @@ import { Label } from "@/components/ui/label";
 interface UserModalProps {
   open: boolean;
   onSave: (username: string) => void;
+  error?: string | null;
 }
 
-export function UserModal({ open, onSave }: UserModalProps) {
+export function UserModal({ open, onSave, error: initialError }: UserModalProps) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (initialError) {
+      setError(initialError);
+    }
+  }, [initialError])
 
   const handleSave = () => {
     if (username.trim().length < 3) {
@@ -37,7 +45,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
         <DialogHeader>
           <DialogTitle className="font-headline">Welcome to URA Trade Pro</DialogTitle>
           <DialogDescription>
-            Please enter a username to start your trading simulation.
+            Please enter your username to log in and start trading.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -56,9 +64,11 @@ export function UserModal({ open, onSave }: UserModalProps) {
           {error && <p className="col-span-4 text-center text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave}>Start Trading</Button>
+          <Button type="submit" onClick={handleSave}>Login</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
