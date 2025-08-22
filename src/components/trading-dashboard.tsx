@@ -396,7 +396,7 @@ export default function TradingDashboard() {
                 <CardDescription>Your current assets and total value.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-              {(usdBalance !== null && btcBalance !== null) ? (
+              {(typeof usdBalance === 'number' && typeof btcBalance === 'number') ? (
                 <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Value</span>
@@ -487,4 +487,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
