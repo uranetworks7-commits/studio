@@ -140,7 +140,7 @@ export default function TradingDashboard() {
         const newPrice = prevPrice * (1 + changePercent);
         return newPrice > 0 ? newPrice : prevPrice; // Prevent price from going to zero
       });
-    }, 200);
+    }, 1000);
   
     return () => {
       clearInterval(marketStateInterval);
