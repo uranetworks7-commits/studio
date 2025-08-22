@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'URA Trade Pro',
+  title: 'Bit Sim',
   description: 'A Bitcoin Trading Simulation',
 };
 

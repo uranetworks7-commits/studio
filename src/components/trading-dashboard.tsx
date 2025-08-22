@@ -69,12 +69,10 @@ type MarketState = "STABLE" | "TREND_UP" | "TREND_DOWN" | "VOLATILE";
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTrading, setIsTrading] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [usdBalance, setUsdBalance] = useState<number | undefined>(undefined);
+  const [usdBalance, setUsdBalance] = useState(1000);
   const [btcBalance, setBtcBalance] = useState(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
@@ -100,7 +98,6 @@ export default function TradingDashboard() {
       handleUserLogin(storedUsername);
     } else {
       setIsModalOpen(true);
-      setIsLoading(false);
     }
   }, []);
 
@@ -112,7 +109,7 @@ export default function TradingDashboard() {
       const states: MarketState[] = ["STABLE", "TREND_UP", "TREND_DOWN", "VOLATILE"];
       const nextState = states[Math.floor(Math.random() * states.length)];
       setMarketState(nextState);
-    }, 30000); // Change market state every 30 seconds
+    }, 15000); // Change market state every 15 seconds
   
     // This interval updates the price based on the current market state.
     const priceUpdateInterval = setInterval(() => {
@@ -124,25 +121,25 @@ export default function TradingDashboard() {
             changePercent = (Math.random() - 0.5) * 0.002; // Very small fluctuations
             break;
           case "TREND_UP":
-            changePercent = (Math.random() * 0.005) + 0.001; // Consistent small gains
+            changePercent = (Math.random() * 0.005); // Consistent small gains
             break;
           case "TREND_DOWN":
-            changePercent = (Math.random() * -0.005) - 0.001; // Consistent small losses
+            changePercent = (Math.random() * -0.005); // Consistent small losses
             break;
           case "VOLATILE":
-            changePercent = (Math.random() - 0.5) * 0.01; // Reduced from 0.02 for less chaos
+            changePercent = (Math.random() - 0.5) * 0.02; // Wider fluctuations
             break;
         }
         
         // Add a small chance for a "black swan" event for excitement
-        if (Math.random() < 0.01) { // Reduced from 0.02
+        if (Math.random() < 0.02) { 
             changePercent *= 5;
         }
 
         const newPrice = prevPrice * (1 + changePercent);
         return newPrice > 0 ? newPrice : prevPrice; // Prevent price from going to zero
       });
-    }, 2000);
+    }, 1000);
   
     return () => {
       clearInterval(marketStateInterval);
@@ -197,7 +194,6 @@ export default function TradingDashboard() {
 
   const handleUserLogin = async (name: string) => {
     setIsLoading(true);
-    setLoginError(null);
     try {
       const userRef = ref(db, `users/${name}`);
       const snapshot = await get(userRef);
@@ -206,11 +202,11 @@ export default function TradingDashboard() {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setUsdBalance(data.usdBalance);
-        setBtcBalance(data.btcBalance || 0);
+        setBtcBalance(data.btcBalance);
 
         if (data.lastTradeDate === today) {
-            setDailyGain(data.dailyGain || 0);
-            setDailyLoss(data.dailyLoss || 0);
+            setDailyGain(data.dailyGain);
+            setDailyLoss(data.dailyLoss);
         } else {
             // New day, reset daily stats
             setDailyGain(0);
@@ -222,37 +218,39 @@ export default function TradingDashboard() {
                 lastTradeDate: today,
             });
         }
-        setUsername(name);
-        localStorage.setItem("bitsim_username", name);
-        setIsModalOpen(false);
+
       } else {
-         setLoginError("Username not found. Please try again.");
-         setIsModalOpen(true);
+        // New user
+        const newUser = {
+          usdBalance: 1000,
+          btcBalance: 0,
+          dailyGain: 0,
+          dailyLoss: 0,
+          lastTradeDate: today,
+        };
+        await set(userRef, newUser);
+        setUsdBalance(newUser.usdBalance);
+        setBtcBalance(newUser.btcBalance);
+        setDailyGain(newUser.dailyGain);
+        setDailyLoss(newUser.dailyLoss);
       }
+      setUsername(name);
+      localStorage.setItem("bitsim_username", name);
+      setIsModalOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Firebase Error",
-        description: "Could not verify user.",
+        description: "Could not save or retrieve user data.",
       });
-       setLoginError("Could not connect to the server to verify username.");
-       setIsModalOpen(true);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogout = () => {
-    setUsername(null);
-    localStorage.removeItem("bitsim_username");
-    setLoginError(null);
-    setIsModalOpen(true);
-    // Reset balances
-    setUsdBalance(undefined);
-    setBtcBalance(0);
-    setDailyGain(0);
-    setDailyLoss(0);
-  };
+    // This will be implemented later
+  }
 
   const handleFeedback = () => {
     toast({
@@ -285,12 +283,10 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    setIsTrading(true);
     const { amount: amountInUsd } = values;
 
-    if (type === "buy" && amountInUsd > (usdBalance || 0)) {
+    if (type === "buy" && amountInUsd > usdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
-      setIsTrading(false);
       return;
     }
 
@@ -298,7 +294,6 @@ export default function TradingDashboard() {
 
     if (type === "sell" && amountInBtc > btcBalance) {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
-      setIsTrading(false);
       return;
     }
     
@@ -313,15 +308,11 @@ export default function TradingDashboard() {
     
     let newUsd, newBtc;
     if (type === "buy") {
-      newUsd = (usdBalance || 0) - amountInUsd;
+      newUsd = usdBalance - amountInUsd;
       newBtc = btcBalance + amountInBtc;
     } else {
-      newUsd = (usdBalance || 0) + amountInUsd;
+      newUsd = usdBalance + amountInUsd;
       newBtc = btcBalance - amountInBtc;
-    }
-
-    if (newUsd === 0) {
-      newUsd = 1;
     }
     
     const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
@@ -350,22 +341,28 @@ export default function TradingDashboard() {
       title: `Trade Successful`,
       description: `Your ${type} order resulted in an instant ${gainLossText}.`,
     });
-    
-    setIsTrading(false);
   };
 
-  const portfolioValue = (usdBalance || 0) + btcBalance * currentPrice;
+  const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
 
-  if (isModalOpen || (!username && isLoading)) {
-    return <UserModal open={isModalOpen} onSave={handleUserLogin} error={loginError} />;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isModalOpen || !username) {
+    return <UserModal open={isModalOpen} onSave={handleUserLogin} />;
   }
 
   return (
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-headline font-bold text-primary">URA Trade Pro</h1>
+            <h1 className="text-2xl font-headline font-bold text-primary">Bit Sim</h1>
             <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
                 <span>Market:</span>
                 <span className="font-bold text-foreground">{marketState}</span>
@@ -381,19 +378,10 @@ export default function TradingDashboard() {
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Feedback
              </Button>
-             <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-             </Button>
           </div>
         )}
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
-        {isLoading || usdBalance === undefined ? (
-            <div className="flex justify-center items-center h-full">
-                <Loader2 className="h-16 w-16 animate-spin text-primary" />
-            </div>
-        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
           <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
             <PriceChart data={priceHistory} currentPrice={currentPrice} chartType={chartType} />
@@ -415,7 +403,7 @@ export default function TradingDashboard() {
                         <Landmark className="h-5 w-5 text-primary" />
                         <span>USD Balance</span>
                     </div>
-                  <span>${(usdBalance || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span>${usdBalance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -470,12 +458,12 @@ export default function TradingDashboard() {
                     </FormItem>
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
-                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))} disabled={isTrading}>
-                      {isTrading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUp className="mr-2 h-4 w-4" />}
+                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))}>
+                      <ArrowUp className="mr-2 h-4 w-4" />
                       Buy
                     </Button>
-                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'sell'))} disabled={isTrading} variant="destructive">
-                      {isTrading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowDown className="mr-2 h-4 w-4" />}
+                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'sell'))} variant="destructive">
+                      <ArrowDown className="mr-2 h-4 w-4" />
                       Sell
                     </Button>
                   </CardFooter>
@@ -484,7 +472,6 @@ export default function TradingDashboard() {
             </Card>
           </div>
         </div>
-        )}
       </main>
     </div>
   );

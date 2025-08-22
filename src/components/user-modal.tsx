@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,22 +17,15 @@ import { Label } from "@/components/ui/label";
 interface UserModalProps {
   open: boolean;
   onSave: (username: string) => void;
-  error?: string | null;
 }
 
-export function UserModal({ open, onSave, error: initialError }: UserModalProps) {
+export function UserModal({ open, onSave }: UserModalProps) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (initialError) {
-      setError(initialError);
-    }
-  }, [initialError])
-
   const handleSave = () => {
-    if (username.trim().length < 2) {
-      setError("Username must be at least 2 characters long.");
+    if (username.trim().length < 3) {
+      setError("Username must be at least 3 characters long.");
       return;
     }
     setError("");
@@ -40,12 +33,13 @@ export function UserModal({ open, onSave, error: initialError }: UserModalProps)
   };
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleSave()}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Welcome to URA Trade Pro</DialogTitle>
+          <DialogTitle className="font-headline">Welcome to Bit Sim</DialogTitle>
           <DialogDescription>
-            Please enter your username to log in and start trading.
+            Please enter a username to start trading. Your progress will be
+            saved.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -64,7 +58,7 @@ export function UserModal({ open, onSave, error: initialError }: UserModalProps)
           {error && <p className="col-span-4 text-center text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave}>Login</Button>
+          <Button type="submit" onClick={handleSave}>Start Trading</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
