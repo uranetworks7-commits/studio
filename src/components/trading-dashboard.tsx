@@ -222,13 +222,24 @@ export default function TradingDashboard() {
                 lastTradeDate: today,
             });
         }
-        setUsername(name);
-        localStorage.setItem("bitsim_username", name);
-        setIsModalOpen(false);
       } else {
-        setLoginError(`Username "${name}" not found. Please try again.`);
-        setIsModalOpen(true);
+        // Create new user
+        const newUserData = {
+            usdBalance: 1000,
+            btcBalance: 0,
+            dailyGain: 0,
+            dailyLoss: 0,
+            lastTradeDate: today,
+        };
+        await set(userRef, newUserData);
+        setUsdBalance(newUserData.usdBalance);
+        setBtcBalance(newUserData.btcBalance);
+        setDailyGain(newUserData.dailyGain);
+        setDailyLoss(newUserData.dailyLoss);
       }
+      setUsername(name);
+      localStorage.setItem("bitsim_username", name);
+      setIsModalOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -489,5 +500,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
