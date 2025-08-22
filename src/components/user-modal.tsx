@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 
 interface UserModalProps {
   open: boolean;
-  onSave: (username: string) => Promise<boolean>;
+  onSave: (username: string) => Promise<'success' | 'not_found'>;
 }
 
 export function UserModal({ open, onSave }: UserModalProps) {
@@ -29,9 +29,9 @@ export function UserModal({ open, onSave }: UserModalProps) {
       return;
     }
     setError("");
-    const success = await onSave(username.trim());
-    if (!success) {
-      setError("Account not found. Please check your username.");
+    const result = await onSave(username.trim());
+    if (result === 'not_found') {
+      setError("An error occurred. Please try again.");
     }
   };
 
@@ -41,8 +41,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
         <DialogHeader>
           <DialogTitle className="font-headline">Welcome to Bit Sim</DialogTitle>
           <DialogDescription>
-            Please enter a username to start trading. Your progress will be
-            saved.
+            Enter a username to start trading. A new account will be created if it doesn't exist.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -61,7 +60,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
           {error && <p className="col-span-4 text-center text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave}>Login</Button>
+          <Button type="submit" onClick={handleSave}>Login / Register</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

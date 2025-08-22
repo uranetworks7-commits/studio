@@ -72,8 +72,8 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [usdBalance, setUsdBalance] = useState<number | null>(null);
-  const [btcBalance, setBtcBalance] = useState<number | null>(null);
+  const [usdBalance, setUsdBalance] = useState<number>(0);
+  const [btcBalance, setBtcBalance] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
 
@@ -193,7 +193,7 @@ export default function TradingDashboard() {
       });
   }, [currentPrice, chartType, username]);
 
-  const handleUserLogin = async (name: string) => {
+  const handleUserLogin = async (name: string): Promise<'success' | 'not_found'> => {
     setIsLoading(true);
     try {
       const userRef = ref(db, `users/${name}`);
@@ -202,13 +202,7 @@ export default function TradingDashboard() {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        let userUsdBalance = data.usdBalance ?? 0;
-
-        if (userUsdBalance === 0) {
-            userUsdBalance = 1;
-        }
-
-        setUsdBalance(userUsdBalance);
+        setUsdBalance(data.usdBalance ?? 0);
         setBtcBalance(data.btcBalance ?? 0);
 
         if (data.lastTradeDate === today) {
@@ -216,31 +210,41 @@ export default function TradingDashboard() {
             setDailyLoss(data.dailyLoss ?? 0);
         } else {
             // New day, reset daily stats
-            setDailyGain(0);
-            setDailyLoss(0);
-        }
-
-        // Update database if balance was zero or if it's a new day
-        if (data.usdBalance === 0 || data.lastTradeDate !== today) {
-             await set(ref(db, `users/${name}`), {
+            await set(ref(db, `users/${name}`), {
                 ...data,
-                usdBalance: userUsdBalance,
                 dailyGain: 0,
                 dailyLoss: 0,
                 lastTradeDate: today,
             });
+            setDailyGain(0);
+            setDailyLoss(0);
         }
         
         setUsername(name);
         localStorage.setItem("bitsim_username", name);
         setIsModalOpen(false);
         setIsLoading(false);
-        return true;
+        return 'success';
       } else {
-        localStorage.removeItem("bitsim_username");
-        setIsModalOpen(true);
+        // Create new user if they don't exist
+        const newUser = {
+            usdBalance: 1000,
+            btcBalance: 0,
+            dailyGain: 0,
+            dailyLoss: 0,
+            lastTradeDate: today,
+        };
+        await set(userRef, newUser);
+        setUsdBalance(newUser.usdBalance);
+        setBtcBalance(newUser.btcBalance);
+        setDailyGain(newUser.dailyGain);
+        setDailyLoss(newUser.dailyLoss);
+
+        setUsername(name);
+        localStorage.setItem("bitsim_username", name);
+        setIsModalOpen(false);
         setIsLoading(false);
-        return false;
+        return 'success';
       }
     } catch (error) {
       toast({
@@ -249,14 +253,15 @@ export default function TradingDashboard() {
         description: "Could not retrieve user data.",
       });
       setIsLoading(false);
-      return false;
+      // Let the modal handle showing a generic error
+      return 'not_found';
     }
   };
 
   const handleLogout = () => {
     setUsername(null);
-    setUsdBalance(null);
-    setBtcBalance(null);
+    setUsdBalance(0);
+    setBtcBalance(0);
     setDailyGain(0);
     setDailyLoss(0);
     setPriceHistory([]);
@@ -299,10 +304,10 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    const currentUsdBalance = usdBalance ?? 0;
-    const currentBtcBalance = btcBalance ?? 0;
-    const currentDailyGain = dailyGain ?? 0;
-    const currentDailyLoss = dailyLoss ?? 0;
+    const currentUsdBalance = usdBalance;
+    const currentBtcBalance = btcBalance;
+    const currentDailyGain = dailyGain;
+    const currentDailyLoss = dailyLoss;
     
     if (isNaN(currentUsdBalance) || isNaN(currentBtcBalance) || isNaN(currentDailyGain) || isNaN(currentDailyLoss)) {
         toast({ variant: "destructive", description: "Invalid balance or P/L data. Please try again." });
@@ -325,7 +330,7 @@ export default function TradingDashboard() {
     
     // Simulate sell delay
     if (type === "sell") {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
     } else {
         await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -339,10 +344,6 @@ export default function TradingDashboard() {
     } else {
       newUsd = currentUsdBalance + amountInUsd;
       newBtc = currentBtcBalance - amountInBtc;
-    }
-
-    if (newUsd === 0) {
-      newUsd = 1;
     }
     
     const newDailyGain = result.gainLoss > 0 ? currentDailyGain + result.gainLoss : currentDailyGain;
@@ -373,7 +374,7 @@ export default function TradingDashboard() {
     });
   };
 
-  const portfolioValue = (usdBalance ?? 0) + (btcBalance ?? 0) * currentPrice;
+  const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
 
   if (isLoading) {
