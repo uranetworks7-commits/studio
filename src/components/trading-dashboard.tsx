@@ -68,13 +68,13 @@ interface PriceData {
 type MarketState = "BULL_RUN" | "BEAR_MARKET" | "CONSOLIDATION" | "VOLATILITY_SPIKE" | "PUMP" | "DUMP" ;
 
 // More complex market state transition logic
-const stateBehaviors: { [key in MarketState]: { duration: [number, number], change: () => number, next: MarketState[] } } = {
-  BULL_RUN: { duration: [20, 40], change: () => Math.random() * 0.003 + 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"] },
-  BEAR_MARKET: { duration: [20, 40], change: () => (Math.random() * -0.003) - 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"] },
-  CONSOLIDATION: { duration: [15, 30], change: () => (Math.random() - 0.5) * 0.0015, next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"] },
-  VOLATILITY_SPIKE: { duration: [10, 20], change: () => (Math.random() - 0.5) * 0.02, next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"] },
-  PUMP: { duration: [1, 3], change: () => Math.random() * 0.05 + 0.01, next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"] },
-  DUMP: { duration: [1, 3], change: () => (Math.random() * -0.05) - 0.01, next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"] },
+const stateBehaviors: { [key in MarketState]: { duration: [number, number], change: () => number, next: MarketState[], updateInterval: [number, number] } } = {
+  BULL_RUN: { duration: [20, 40], change: () => Math.random() * 0.003 + 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"], updateInterval: [800, 1200] },
+  BEAR_MARKET: { duration: [20, 40], change: () => (Math.random() * -0.003) - 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"], updateInterval: [800, 1200] },
+  CONSOLIDATION: { duration: [15, 30], change: () => (Math.random() - 0.5) * 0.0015, next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"], updateInterval: [900, 1500] },
+  VOLATILITY_SPIKE: { duration: [10, 20], change: () => (Math.random() - 0.5) * 0.02, next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"], updateInterval: [300, 700] },
+  PUMP: { duration: [1, 3], change: () => Math.random() * 0.05 + 0.01, next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"], updateInterval: [200, 500] },
+  DUMP: { duration: [1, 3], change: () => (Math.random() * -0.05) - 0.01, next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"], updateInterval: [200, 500] },
 };
 
 export default function TradingDashboard() {
@@ -96,7 +96,7 @@ export default function TradingDashboard() {
   const { toast } = useToast();
   
   const marketStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const form = useForm<TradeFormValues>({
@@ -119,7 +119,11 @@ export default function TradingDashboard() {
             return 'not_found';
         }
         
-        const initialUsdBalance = userData.usdBalance ?? 1000;
+        let initialUsdBalance = userData.usdBalance;
+        if (initialUsdBalance === undefined || initialUsdBalance === null) {
+            initialUsdBalance = 1000;
+        }
+
         setUsdBalance(initialUsdBalance);
         setBtcBalance(userData.btcBalance ?? 0);
 
@@ -155,7 +159,7 @@ export default function TradingDashboard() {
     const storedUsername = localStorage.getItem("bitsim_username");
     if (storedUsername) {
         setIsLoading(true);
-        handleUserLogin(storedUsername);
+        handleUserLogin(storedUsername).finally(() => setIsLoading(false));
     } else {
       setIsModalOpen(true);
       setIsLoading(false);
@@ -179,23 +183,29 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     if (!username) return;
-
+  
     scheduleNextMarketState();
   
-    if (priceUpdateIntervalRef.current) {
-      clearInterval(priceUpdateIntervalRef.current);
-    }
-
-    priceUpdateIntervalRef.current = setInterval(() => {
+    const updatePrice = () => {
       setCurrentPrice((prevPrice) => {
         const changePercent = stateBehaviors[marketState].change();
         const newPrice = prevPrice * (1 + changePercent);
         return newPrice > 1 ? newPrice : prevPrice; 
       });
-    }, 1000);
+  
+      const [minInterval, maxInterval] = stateBehaviors[marketState].updateInterval;
+      const nextUpdateIn = Math.random() * (maxInterval - minInterval) + minInterval;
+      
+      if (priceUpdateTimeoutRef.current) {
+        clearTimeout(priceUpdateTimeoutRef.current);
+      }
+      priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
+    };
+  
+    updatePrice(); // Start the loop
   
     return () => {
-      if (priceUpdateIntervalRef.current) clearInterval(priceUpdateIntervalRef.current);
+      if (priceUpdateTimeoutRef.current) clearTimeout(priceUpdateTimeoutRef.current);
       if (marketStateTimeoutRef.current) clearTimeout(marketStateTimeoutRef.current);
     };
   }, [username, marketState, scheduleNextMarketState]);
@@ -499,3 +509,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
