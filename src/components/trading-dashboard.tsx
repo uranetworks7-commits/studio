@@ -202,12 +202,12 @@ export default function TradingDashboard() {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setUsdBalance(data.usdBalance);
-        setBtcBalance(data.btcBalance);
+        setUsdBalance(data.usdBalance ?? 0);
+        setBtcBalance(data.btcBalance ?? 0);
 
         if (data.lastTradeDate === today) {
-            setDailyGain(data.dailyGain);
-            setDailyLoss(data.dailyLoss);
+            setDailyGain(data.dailyGain ?? 0);
+            setDailyLoss(data.dailyLoss ?? 0);
         } else {
             // New day, reset daily stats
             setDailyGain(0);
@@ -219,30 +219,23 @@ export default function TradingDashboard() {
                 lastTradeDate: today,
             });
         }
-
+        setUsername(name);
+        localStorage.setItem("bitsim_username", name);
+        setIsModalOpen(false);
       } else {
-        // New user
-        const newUser = {
-          usdBalance: 1000,
-          btcBalance: 0,
-          dailyGain: 0,
-          dailyLoss: 0,
-          lastTradeDate: today,
-        };
-        await set(userRef, newUser);
-        setUsdBalance(newUser.usdBalance);
-        setBtcBalance(newUser.btcBalance);
-        setDailyGain(newUser.dailyGain);
-        setDailyLoss(newUser.dailyLoss);
+        toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "Account not found. Please check your username.",
+          });
+          localStorage.removeItem("bitsim_username");
+          setIsModalOpen(true);
       }
-      setUsername(name);
-      localStorage.setItem("bitsim_username", name);
-      setIsModalOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Firebase Error",
-        description: "Could not save or retrieve user data.",
+        description: "Could not retrieve user data.",
       });
     } finally {
       setIsLoading(false);
@@ -250,8 +243,19 @@ export default function TradingDashboard() {
   };
 
   const handleLogout = () => {
-    // This will be implemented later
-  }
+    setUsername(null);
+    setUsdBalance(null);
+    setBtcBalance(null);
+    setDailyGain(0);
+    setDailyLoss(0);
+    setPriceHistory([]);
+    localStorage.removeItem("bitsim_username");
+    setIsModalOpen(true);
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
+    });
+  };
 
   const handleFeedback = () => {
     toast({
@@ -288,6 +292,11 @@ export default function TradingDashboard() {
     const currentBtcBalance = btcBalance ?? 0;
     const currentDailyGain = dailyGain ?? 0;
     const currentDailyLoss = dailyLoss ?? 0;
+    
+    if (isNaN(currentUsdBalance) || isNaN(currentBtcBalance) || isNaN(currentDailyGain) || isNaN(currentDailyLoss)) {
+        toast({ variant: "destructive", description: "Invalid balance or P/L data. Please try again." });
+        return;
+    }
 
     const { amount: amountInUsd } = values;
 
@@ -319,6 +328,10 @@ export default function TradingDashboard() {
     } else {
       newUsd = currentUsdBalance + amountInUsd;
       newBtc = currentBtcBalance - amountInBtc;
+    }
+
+    if (newUsd === 0) {
+      newUsd = 1;
     }
     
     const newDailyGain = result.gainLoss > 0 ? currentDailyGain + result.gainLoss : currentDailyGain;
@@ -383,6 +396,10 @@ export default function TradingDashboard() {
              <Button variant="outline" size="sm" onClick={handleFeedback}>
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Feedback
+             </Button>
+             <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
              </Button>
           </div>
         )}
@@ -491,4 +508,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
