@@ -56,7 +56,6 @@ const formSchema = z.object({
 type TradeFormValues = z.infer<typeof formSchema>;
 
 const INITIAL_PRICE = 65000;
-const DEFAULT_USD_BALANCE = 1000;
 const PRICE_HISTORY_LENGTH = 50;
 const CANDLESTICK_INTERVAL = 5; // Aggregate data every 5 ticks
 
@@ -320,6 +319,10 @@ export default function TradingDashboard() {
       newUsd = (usdBalance || 0) + amountInUsd;
       newBtc = btcBalance - amountInBtc;
     }
+
+    if (newUsd === 0) {
+      newUsd = 1;
+    }
     
     const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
     const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
@@ -386,7 +389,7 @@ export default function TradingDashboard() {
         )}
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
-        {isLoading ? (
+        {isLoading || usdBalance === undefined ? (
             <div className="flex justify-center items-center h-full">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
             </div>
@@ -486,3 +489,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
