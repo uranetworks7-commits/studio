@@ -12,7 +12,7 @@ import {
   MessageSquare,
   User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -56,8 +56,8 @@ const formSchema = z.object({
 type TradeFormValues = z.infer<typeof formSchema>;
 
 const INITIAL_PRICE = 65000;
-const PRICE_HISTORY_LENGTH = 50;
-const CANDLESTICK_INTERVAL = 5; // Aggregate data every 5 ticks
+const PRICE_HISTORY_LENGTH = 100; // Increased for better trend visibility
+const CANDLESTICK_INTERVAL = 5;
 
 interface PriceData { 
     time: string; 
@@ -65,14 +65,24 @@ interface PriceData {
     ohlc?: [number, number, number, number];
 }
 
-type MarketState = "STABLE" | "TREND_UP" | "TREND_DOWN" | "VOLATILE";
+type MarketState = "BULL_RUN" | "BEAR_MARKET" | "CONSOLIDATION" | "VOLATILITY_SPIKE" | "PUMP" | "DUMP" ;
+
+// More complex market state transition logic
+const stateBehaviors: { [key in MarketState]: { duration: [number, number], change: () => number, next: MarketState[] } } = {
+  BULL_RUN: { duration: [20, 40], change: () => Math.random() * 0.003 + 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"] },
+  BEAR_MARKET: { duration: [20, 40], change: () => (Math.random() * -0.003) - 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"] },
+  CONSOLIDATION: { duration: [15, 30], change: () => (Math.random() - 0.5) * 0.0015, next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"] },
+  VOLATILITY_SPIKE: { duration: [10, 20], change: () => (Math.random() - 0.5) * 0.02, next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"] },
+  PUMP: { duration: [1, 3], change: () => Math.random() * 0.05 + 0.01, next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"] },
+  DUMP: { duration: [1, 3], change: () => (Math.random() * -0.05) - 0.01, next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"] },
+};
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [usdBalance, setUsdBalance] = useState<number>(1000);
+  const [usdBalance, setUsdBalance] = useState<number>(0);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
@@ -81,9 +91,13 @@ export default function TradingDashboard() {
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
   
-  const [marketState, setMarketState] = useState<MarketState>("STABLE");
+  const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
 
   const { toast } = useToast();
+  
+  const marketStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(formSchema),
@@ -92,61 +106,99 @@ export default function TradingDashboard() {
     },
   });
 
+  const handleUserLogin = useCallback(async (name: string): Promise<'success' | 'not_found' | 'error'> => {
+    try {
+        const userRef = ref(db, `users/${name}`);
+        const snapshot = await get(userRef);
+        const today = new Date().toISOString().split("T")[0];
+
+        let userData;
+        if (snapshot.exists()) {
+            userData = snapshot.val();
+        } else {
+            return 'not_found';
+        }
+        
+        const initialUsdBalance = userData.usdBalance ?? 1000;
+        setUsdBalance(initialUsdBalance);
+        setBtcBalance(userData.btcBalance ?? 0);
+
+        if (userData.lastTradeDate === today) {
+            setDailyGain(userData.dailyGain ?? 0);
+            setDailyLoss(userData.dailyLoss ?? 0);
+        } else {
+            await set(ref(db, `users/${name}`), {
+                ...userData,
+                dailyGain: 0,
+                dailyLoss: 0,
+                lastTradeDate: today,
+            });
+            setDailyGain(0);
+            setDailyLoss(0);
+        }
+        
+        setUsername(name);
+        localStorage.setItem("bitsim_username", name);
+        setIsModalOpen(false);
+        setIsLoading(false);
+        return 'success';
+
+    } catch(err) {
+        console.error("Firebase error during login: ", err);
+        toast({ variant: 'destructive', description: "Error connecting to the server." });
+        return 'error';
+    }
+  }, [toast]);
+  
+
   useEffect(() => {
     const storedUsername = localStorage.getItem("bitsim_username");
     if (storedUsername) {
-      handleUserLogin(storedUsername);
+        setIsLoading(true);
+        handleUserLogin(storedUsername);
     } else {
       setIsModalOpen(true);
       setIsLoading(false);
     }
-  }, []);
+  }, [handleUserLogin]);
+
+  const scheduleNextMarketState = useCallback(() => {
+    if (marketStateTimeoutRef.current) {
+        clearTimeout(marketStateTimeoutRef.current);
+    }
+    const behavior = stateBehaviors[marketState];
+    const [min, max] = behavior.duration;
+    const duration = (Math.random() * (max - min) + min) * 1000;
+
+    marketStateTimeoutRef.current = setTimeout(() => {
+        const nextStates = behavior.next;
+        const nextState = nextStates[Math.floor(Math.random() * nextStates.length)];
+        setMarketState(nextState);
+    }, duration);
+  }, [marketState]);
 
   useEffect(() => {
     if (!username) return;
-  
-    // This interval changes the market state periodically.
-    const marketStateInterval = setInterval(() => {
-      const states: MarketState[] = ["STABLE", "TREND_UP", "TREND_DOWN", "VOLATILE"];
-      const nextState = states[Math.floor(Math.random() * states.length)];
-      setMarketState(nextState);
-    }, 15000); // Change market state every 15 seconds
-  
-    // This interval updates the price based on the current market state.
-    const priceUpdateInterval = setInterval(() => {
-      setCurrentPrice((prevPrice) => {
-        let changePercent = 0;
-  
-        switch (marketState) {
-          case "STABLE":
-            changePercent = (Math.random() - 0.5) * 0.002; // Very small fluctuations
-            break;
-          case "TREND_UP":
-            changePercent = (Math.random() * 0.005); // Consistent small gains
-            break;
-          case "TREND_DOWN":
-            changePercent = (Math.random() * -0.005); // Consistent small losses
-            break;
-          case "VOLATILE":
-            changePercent = (Math.random() - 0.5) * 0.02; // Wider fluctuations
-            break;
-        }
-        
-        // Add a small chance for a "black swan" event for excitement
-        if (Math.random() < 0.02) { 
-            changePercent *= 5;
-        }
 
+    scheduleNextMarketState();
+  
+    if (priceUpdateIntervalRef.current) {
+      clearInterval(priceUpdateIntervalRef.current);
+    }
+
+    priceUpdateIntervalRef.current = setInterval(() => {
+      setCurrentPrice((prevPrice) => {
+        const changePercent = stateBehaviors[marketState].change();
         const newPrice = prevPrice * (1 + changePercent);
-        return newPrice > 0 ? newPrice : prevPrice; // Prevent price from going to zero
+        return newPrice > 1 ? newPrice : prevPrice; 
       });
     }, 1000);
   
     return () => {
-      clearInterval(marketStateInterval);
-      clearInterval(priceUpdateInterval);
+      if (priceUpdateIntervalRef.current) clearInterval(priceUpdateIntervalRef.current);
+      if (marketStateTimeoutRef.current) clearTimeout(marketStateTimeoutRef.current);
     };
-  }, [username, marketState]);
+  }, [username, marketState, scheduleNextMarketState]);
 
   useEffect(() => {
     if (!username) return;
@@ -157,7 +209,7 @@ export default function TradingDashboard() {
           price: currentPrice,
         };
     
-        let updatedHistory = [...prevHistory, newEntry].filter(p => p.price); // Ensure no invalid price data
+        let updatedHistory = [...prevHistory, newEntry].filter(p => p.price); 
     
         if (chartType === 'candlestick') {
             const candleStickReadyHistory = updatedHistory.filter(p => !p.ohlc);
@@ -176,14 +228,12 @@ export default function TradingDashboard() {
                   ohlc: [open, high, low, close]
                 };
                 
-                // Replace the processed raw data with a single candle entry
                 const remainingHistory = updatedHistory.slice(CANDLESTICK_INTERVAL);
                 
                 return [...prevHistory.filter(p=> p.ohlc), candleEntry, ...remainingHistory].slice(-PRICE_HISTORY_LENGTH);
             }
             return updatedHistory;
         } else {
-            // Area chart logic, remove OHLC data if switching from candlestick
             const areaHistory = updatedHistory.map(({price, time}) => ({price, time}));
             if (areaHistory.length > PRICE_HISTORY_LENGTH) {
                 return areaHistory.slice(areaHistory.length - PRICE_HISTORY_LENGTH);
@@ -193,46 +243,9 @@ export default function TradingDashboard() {
       });
   }, [currentPrice, chartType, username]);
 
-  const handleUserLogin = async (name: string): Promise<'success' | 'not_found'> => {
-    const userRef = ref(db, `users/${name}`);
-    const snapshot = await get(userRef);
-    const today = new Date().toISOString().split("T")[0];
-
-    if (snapshot.exists()) {
-      setIsLoading(true);
-      const data = snapshot.val();
-      const initialUsdBalance = data.usdBalance ?? 1000;
-
-      setUsdBalance(initialUsdBalance);
-      setBtcBalance(data.btcBalance ?? 0);
-
-      if (data.lastTradeDate === today) {
-          setDailyGain(data.dailyGain ?? 0);
-          setDailyLoss(data.dailyLoss ?? 0);
-      } else {
-          await set(ref(db, `users/${name}`), {
-              ...data,
-              dailyGain: 0,
-              dailyLoss: 0,
-              lastTradeDate: today,
-          });
-          setDailyGain(0);
-          setDailyLoss(0);
-      }
-      
-      setUsername(name);
-      localStorage.setItem("bitsim_username", name);
-      setIsModalOpen(false);
-      setIsLoading(false);
-      return 'success';
-    } else {
-      return 'not_found';
-    }
-  };
-
   const handleLogout = () => {
     setUsername(null);
-    setUsdBalance(1000);
+    setUsdBalance(0);
     setBtcBalance(0);
     setDailyGain(0);
     setDailyLoss(0);
@@ -253,20 +266,21 @@ export default function TradingDashboard() {
   }
 
   const runSimpleTradeSimulation = (amountInBtc: number) => {
-      // The trade simulation now reflects the current market state.
       let changePercent = 0;
       switch (marketState) {
-          case "STABLE":
-              changePercent = (Math.random() - 0.5) * 0.005; // Less slippage in stable market
+          case "CONSOLIDATION":
+              changePercent = (Math.random() - 0.5) * 0.005; 
               break;
-          case "TREND_UP":
-              changePercent = (Math.random() * 0.008); // Price might slip upwards
+          case "BULL_RUN":
+              changePercent = (Math.random() * 0.008); 
               break;
-          case "TREND_DOWN":
-              changePercent = (Math.random() * -0.008); // Price might slip downwards
+          case "BEAR_MARKET":
+              changePercent = (Math.random() * -0.008); 
               break;
-          case "VOLATILE":
-              changePercent = (Math.random() - 0.5) * 0.03; // High slippage
+          case "VOLATILITY_SPIKE":
+          case "PUMP":
+          case "DUMP":
+              changePercent = (Math.random() - 0.5) * 0.03; 
               break;
       }
       
@@ -276,31 +290,25 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    const currentUsdBalance = usdBalance;
-    const currentBtcBalance = btcBalance;
-    const currentDailyGain = dailyGain;
-    const currentDailyLoss = dailyLoss;
-    
-    if (isNaN(currentUsdBalance) || isNaN(currentBtcBalance) || isNaN(currentDailyGain) || isNaN(currentDailyLoss)) {
+    if (isNaN(usdBalance) || isNaN(btcBalance) || isNaN(dailyGain) || isNaN(dailyLoss)) {
         toast({ variant: "destructive", description: "Invalid balance or P/L data. Please try again." });
         return;
     }
 
     const { amount: amountInUsd } = values;
 
-    if (type === "buy" && amountInUsd > currentUsdBalance) {
+    if (type === "buy" && amountInUsd > usdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
       return;
     }
 
     const amountInBtc = amountInUsd / currentPrice;
 
-    if (type === "sell" && amountInBtc > currentBtcBalance) {
+    if (type === "sell" && amountInBtc > btcBalance) {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
       return;
     }
     
-    // Simulate trade delay
     if (type === "sell") {
         await new Promise(resolve => setTimeout(resolve, 2000));
     } else {
@@ -311,15 +319,15 @@ export default function TradingDashboard() {
     
     let newUsd, newBtc;
     if (type === "buy") {
-      newUsd = currentUsdBalance - amountInUsd;
-      newBtc = currentBtcBalance + amountInBtc;
+      newUsd = usdBalance - amountInUsd;
+      newBtc = btcBalance + amountInBtc;
     } else {
-      newUsd = currentUsdBalance + amountInUsd;
-      newBtc = currentBtcBalance - amountInBtc;
+      newUsd = usdBalance + amountInUsd;
+      newBtc = btcBalance - amountInBtc;
     }
     
-    const newDailyGain = result.gainLoss > 0 ? currentDailyGain + result.gainLoss : currentDailyGain;
-    const newDailyLoss = result.gainLoss < 0 ? currentDailyLoss + Math.abs(result.gainLoss) : currentDailyLoss;
+    const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
+    const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
 
     setUsdBalance(newUsd);
     setBtcBalance(newBtc);
@@ -368,7 +376,7 @@ export default function TradingDashboard() {
             <h1 className="text-2xl font-headline font-bold text-primary">URA Trade Pro</h1>
             <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
                 <span>Market:</span>
-                <span className="font-bold text-foreground">{marketState}</span>
+                <span className="font-bold text-foreground">{marketState.replace('_', ' ')}</span>
             </div>
         </div>
         {username && (
