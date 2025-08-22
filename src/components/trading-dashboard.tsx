@@ -284,17 +284,21 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    if (usdBalance === null || btcBalance === null) return;
+    const currentUsdBalance = usdBalance ?? 0;
+    const currentBtcBalance = btcBalance ?? 0;
+    const currentDailyGain = dailyGain ?? 0;
+    const currentDailyLoss = dailyLoss ?? 0;
+
     const { amount: amountInUsd } = values;
 
-    if (type === "buy" && amountInUsd > usdBalance) {
+    if (type === "buy" && amountInUsd > currentUsdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
       return;
     }
 
     const amountInBtc = amountInUsd / currentPrice;
 
-    if (type === "sell" && amountInBtc > btcBalance) {
+    if (type === "sell" && amountInBtc > currentBtcBalance) {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
       return;
     }
@@ -310,15 +314,15 @@ export default function TradingDashboard() {
     
     let newUsd, newBtc;
     if (type === "buy") {
-      newUsd = usdBalance - amountInUsd;
-      newBtc = btcBalance + amountInBtc;
+      newUsd = currentUsdBalance - amountInUsd;
+      newBtc = currentBtcBalance + amountInBtc;
     } else {
-      newUsd = usdBalance + amountInUsd;
-      newBtc = btcBalance - amountInBtc;
+      newUsd = currentUsdBalance + amountInUsd;
+      newBtc = currentBtcBalance - amountInBtc;
     }
     
-    const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
-    const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
+    const newDailyGain = result.gainLoss > 0 ? currentDailyGain + result.gainLoss : currentDailyGain;
+    const newDailyLoss = result.gainLoss < 0 ? currentDailyLoss + Math.abs(result.gainLoss) : currentDailyLoss;
 
     setUsdBalance(newUsd);
     setBtcBalance(newBtc);
@@ -396,7 +400,7 @@ export default function TradingDashboard() {
                 <CardDescription>Your current assets and total value.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-              {(typeof usdBalance === 'number' && typeof btcBalance === 'number') ? (
+              {typeof usdBalance === 'number' && typeof btcBalance === 'number' ? (
                 <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Value</span>
@@ -487,3 +491,4 @@ export default function TradingDashboard() {
   );
 }
 
+    
