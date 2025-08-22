@@ -72,7 +72,7 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [usdBalance, setUsdBalance] = useState<number>(0);
+  const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
@@ -194,56 +194,45 @@ export default function TradingDashboard() {
   }, [currentPrice, chartType, username]);
 
   const handleUserLogin = async (name: string): Promise<'success' | 'not_found'> => {
-    setIsLoading(true);
-    try {
-      const userRef = ref(db, `users/${name}`);
-      const snapshot = await get(userRef);
-      const today = new Date().toISOString().split("T")[0];
+    const userRef = ref(db, `users/${name}`);
+    const snapshot = await get(userRef);
+    const today = new Date().toISOString().split("T")[0];
 
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const initialUsdBalance = data.usdBalance ?? 1000;
-        setUsdBalance(initialUsdBalance);
-        setBtcBalance(data.btcBalance ?? 0);
+    if (snapshot.exists()) {
+      setIsLoading(true);
+      const data = snapshot.val();
+      const initialUsdBalance = data.usdBalance ?? 1000;
 
-        if (data.lastTradeDate === today) {
-            setDailyGain(data.dailyGain ?? 0);
-            setDailyLoss(data.dailyLoss ?? 0);
-        } else {
-            // New day, reset daily stats
-            await set(ref(db, `users/${name}`), {
-                ...data,
-                usdBalance: initialUsdBalance,
-                dailyGain: 0,
-                dailyLoss: 0,
-                lastTradeDate: today,
-            });
-            setDailyGain(0);
-            setDailyLoss(0);
-        }
-        
-        setUsername(name);
-        localStorage.setItem("bitsim_username", name);
-        setIsModalOpen(false);
-        return 'success';
+      setUsdBalance(initialUsdBalance);
+      setBtcBalance(data.btcBalance ?? 0);
+
+      if (data.lastTradeDate === today) {
+          setDailyGain(data.dailyGain ?? 0);
+          setDailyLoss(data.dailyLoss ?? 0);
       } else {
-        return 'not_found';
+          await set(ref(db, `users/${name}`), {
+              ...data,
+              dailyGain: 0,
+              dailyLoss: 0,
+              lastTradeDate: today,
+          });
+          setDailyGain(0);
+          setDailyLoss(0);
       }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Firebase Error",
-        description: "Could not retrieve user data.",
-      });
+      
+      setUsername(name);
+      localStorage.setItem("bitsim_username", name);
+      setIsModalOpen(false);
+      setIsLoading(false);
+      return 'success';
+    } else {
       return 'not_found';
-    } finally {
-        setIsLoading(false);
     }
   };
 
   const handleLogout = () => {
     setUsername(null);
-    setUsdBalance(0);
+    setUsdBalance(1000);
     setBtcBalance(0);
     setDailyGain(0);
     setDailyLoss(0);
