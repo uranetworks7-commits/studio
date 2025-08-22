@@ -202,7 +202,8 @@ export default function TradingDashboard() {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setUsdBalance(data.usdBalance ?? 0);
+        const initialUsdBalance = data.usdBalance ?? 1000;
+        setUsdBalance(initialUsdBalance);
         setBtcBalance(data.btcBalance ?? 0);
 
         if (data.lastTradeDate === today) {
@@ -212,6 +213,7 @@ export default function TradingDashboard() {
             // New day, reset daily stats
             await set(ref(db, `users/${name}`), {
                 ...data,
+                usdBalance: initialUsdBalance,
                 dailyGain: 0,
                 dailyLoss: 0,
                 lastTradeDate: today,
@@ -226,25 +228,7 @@ export default function TradingDashboard() {
         setIsLoading(false);
         return 'success';
       } else {
-        // Create new user if they don't exist
-        const newUser = {
-            usdBalance: 1000,
-            btcBalance: 0,
-            dailyGain: 0,
-            dailyLoss: 0,
-            lastTradeDate: today,
-        };
-        await set(userRef, newUser);
-        setUsdBalance(newUser.usdBalance);
-        setBtcBalance(newUser.btcBalance);
-        setDailyGain(newUser.dailyGain);
-        setDailyLoss(newUser.dailyLoss);
-
-        setUsername(name);
-        localStorage.setItem("bitsim_username", name);
-        setIsModalOpen(false);
-        setIsLoading(false);
-        return 'success';
+        return 'not_found';
       }
     } catch (error) {
       toast({
@@ -253,7 +237,6 @@ export default function TradingDashboard() {
         description: "Could not retrieve user data.",
       });
       setIsLoading(false);
-      // Let the modal handle showing a generic error
       return 'not_found';
     }
   };
@@ -328,7 +311,7 @@ export default function TradingDashboard() {
       return;
     }
     
-    // Simulate sell delay
+    // Simulate trade delay
     if (type === "sell") {
         await new Promise(resolve => setTimeout(resolve, 2000));
     } else {
@@ -519,3 +502,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
