@@ -69,7 +69,7 @@ type MarketState = "STABLE" | "TREND_UP" | "TREND_DOWN" | "VOLATILE";
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const [usdBalance, setUsdBalance] = useState<number | null>(null);
@@ -374,7 +374,7 @@ export default function TradingDashboard() {
   }
 
   if (isModalOpen || !username) {
-    return <UserModal open={isModalOpen} onSave={handleUserLogin} />;
+    return <UserModal open={isModalOpen || !username} onSave={handleUserLogin} />;
   }
 
   return (
@@ -507,4 +507,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
