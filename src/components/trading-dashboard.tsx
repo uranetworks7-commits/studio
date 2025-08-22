@@ -202,7 +202,13 @@ export default function TradingDashboard() {
 
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setUsdBalance(data.usdBalance ?? 0);
+        let userUsdBalance = data.usdBalance ?? 0;
+
+        if (userUsdBalance === 0) {
+            userUsdBalance = 1;
+        }
+
+        setUsdBalance(userUsdBalance);
         setBtcBalance(data.btcBalance ?? 0);
 
         if (data.lastTradeDate === today) {
@@ -212,13 +218,19 @@ export default function TradingDashboard() {
             // New day, reset daily stats
             setDailyGain(0);
             setDailyLoss(0);
-            await set(ref(db, `users/${name}`), {
+        }
+
+        // Update database if balance was zero or if it's a new day
+        if (data.usdBalance === 0 || data.lastTradeDate !== today) {
+             await set(ref(db, `users/${name}`), {
                 ...data,
+                usdBalance: userUsdBalance,
                 dailyGain: 0,
                 dailyLoss: 0,
                 lastTradeDate: today,
             });
         }
+        
         setUsername(name);
         localStorage.setItem("bitsim_username", name);
         setIsModalOpen(false);
@@ -506,5 +518,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
