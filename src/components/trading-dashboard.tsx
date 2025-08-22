@@ -140,7 +140,7 @@ export default function TradingDashboard() {
         const newPrice = prevPrice * (1 + changePercent);
         return newPrice > 0 ? newPrice : prevPrice; // Prevent price from going to zero
       });
-    }, 1000);
+    }, 200);
   
     return () => {
       clearInterval(marketStateInterval);
@@ -222,14 +222,13 @@ export default function TradingDashboard() {
         setUsername(name);
         localStorage.setItem("bitsim_username", name);
         setIsModalOpen(false);
+        setIsLoading(false);
+        return true;
       } else {
-        toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: "Account not found. Please check your username.",
-          });
-          localStorage.removeItem("bitsim_username");
-          setIsModalOpen(true);
+        localStorage.removeItem("bitsim_username");
+        setIsModalOpen(true);
+        setIsLoading(false);
+        return false;
       }
     } catch (error) {
       toast({
@@ -237,8 +236,8 @@ export default function TradingDashboard() {
         title: "Firebase Error",
         description: "Could not retrieve user data.",
       });
-    } finally {
       setIsLoading(false);
+      return false;
     }
   };
 
@@ -507,3 +506,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    

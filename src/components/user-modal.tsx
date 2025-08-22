@@ -16,25 +16,28 @@ import { Label } from "@/components/ui/label";
 
 interface UserModalProps {
   open: boolean;
-  onSave: (username: string) => void;
+  onSave: (username: string) => Promise<boolean>;
 }
 
 export function UserModal({ open, onSave }: UserModalProps) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
 
-  const handleSave = () => {
-    if (username.trim().length < 3) {
-      setError("Username must be at least 3 characters long.");
+  const handleSave = async () => {
+    if (username.trim().length < 2) {
+      setError("Username must be at least 2 characters long.");
       return;
     }
     setError("");
-    onSave(username.trim());
+    const success = await onSave(username.trim());
+    if (!success) {
+      setError("Account not found. Please check your username.");
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleSave()}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open}>
+      <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="font-headline">Welcome to Bit Sim</DialogTitle>
           <DialogDescription>
@@ -58,9 +61,11 @@ export function UserModal({ open, onSave }: UserModalProps) {
           {error && <p className="col-span-4 text-center text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave}>Start Trading</Button>
+          <Button type="submit" onClick={handleSave}>Login</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
