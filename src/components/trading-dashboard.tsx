@@ -330,7 +330,7 @@ export default function TradingDashboard() {
     
     // Simulate sell delay
     if (type === "sell") {
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
     } else {
         await new Promise(resolve => setTimeout(resolve, 500));
     }
