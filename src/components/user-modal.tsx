@@ -36,7 +36,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
   };
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={!open ? () => {} : undefined}>
       <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="font-headline">Welcome to Bit Sim</DialogTitle>
@@ -67,5 +67,3 @@ export function UserModal({ open, onSave }: UserModalProps) {
     </Dialog>
   );
 }
-
-    
