@@ -225,7 +225,6 @@ export default function TradingDashboard() {
         setUsername(name);
         localStorage.setItem("bitsim_username", name);
         setIsModalOpen(false);
-        setIsLoading(false);
         return 'success';
       } else {
         return 'not_found';
@@ -236,8 +235,9 @@ export default function TradingDashboard() {
         title: "Firebase Error",
         description: "Could not retrieve user data.",
       });
-      setIsLoading(false);
       return 'not_found';
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -502,5 +502,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 interface UserModalProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface UserModalProps {
 export function UserModal({ open, onSave }: UserModalProps) {
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
+  const [isChecking, setIsChecking] = useState(false);
 
   const handleSave = async () => {
     if (username.trim().length < 2) {
@@ -29,10 +31,12 @@ export function UserModal({ open, onSave }: UserModalProps) {
       return;
     }
     setError("");
+    setIsChecking(true);
     const result = await onSave(username.trim());
     if (result === 'not_found') {
-      setError("An error occurred. Please try again.");
+      setError("Account not found. Please try a different username.");
     }
+    setIsChecking(false);
   };
 
   return (
@@ -41,7 +45,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
         <DialogHeader>
           <DialogTitle className="font-headline">Welcome to Bit Sim</DialogTitle>
           <DialogDescription>
-            Enter a username to start trading. A new account will be created if it doesn't exist.
+            Enter your username to start trading or create a new account.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -55,12 +59,16 @@ export function UserModal({ open, onSave }: UserModalProps) {
               onChange={(e) => setUsername(e.target.value)}
               className="col-span-3"
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+              disabled={isChecking}
             />
           </div>
-          {error && <p className="col-span-4 text-center text-sm text-destructive">{error}</p>}
+          {error && <p className="col-span-4 text-center font-semibold text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave}>Login / Register</Button>
+          <Button type="submit" onClick={handleSave} disabled={isChecking}>
+            {isChecking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Login / Register
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
