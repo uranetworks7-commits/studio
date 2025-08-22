@@ -70,10 +70,10 @@ type MarketState = "STABLE" | "TREND_UP" | "TREND_DOWN" | "VOLATILE";
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [usdBalance, setUsdBalance] = useState(1000);
-  const [btcBalance, setBtcBalance] = useState(0);
+  const [usdBalance, setUsdBalance] = useState<number | null>(null);
+  const [btcBalance, setBtcBalance] = useState<number | null>(null);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
 
@@ -98,6 +98,7 @@ export default function TradingDashboard() {
       handleUserLogin(storedUsername);
     } else {
       setIsModalOpen(true);
+      setIsLoading(false);
     }
   }, []);
 
@@ -283,6 +284,7 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
+    if (usdBalance === null || btcBalance === null) return;
     const { amount: amountInUsd } = values;
 
     if (type === "buy" && amountInUsd > usdBalance) {
@@ -343,7 +345,7 @@ export default function TradingDashboard() {
     });
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const portfolioValue = (usdBalance ?? 0) + (btcBalance ?? 0) * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
 
   if (isLoading) {
@@ -394,6 +396,8 @@ export default function TradingDashboard() {
                 <CardDescription>Your current assets and total value.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+              {(usdBalance !== null && btcBalance !== null) && (
+                <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Value</span>
                   <span className="text-2xl font-bold font-headline">${portfolioValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
@@ -418,6 +422,8 @@ export default function TradingDashboard() {
                     {todaysPL >= 0 ? '+' : '-'}${Math.abs(todaysPL).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </span>
                 </div>
+                </>
+              )}
               </CardContent>
             </Card>
 
