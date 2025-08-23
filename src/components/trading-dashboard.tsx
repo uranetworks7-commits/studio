@@ -151,18 +151,21 @@ function calculateTrade(
     result.btcBalance = newTotalBtc;
     result.avgBtcCost = newTotalBtc > 0 ? newTotalCost / newTotalBtc : 0;
     result.btcAmountTraded = btcAmount;
-  } else {
-    // sell
-    const proceedsFromSale = btcAmount * price;
-    const costOfBtcSold = btcAmount * avgBtcCost;
+  } else { // sell
+    const btcToSell = btcAmount;
+    const proceedsFromSale = btcToSell * price;
+    const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
-    const newBtcBalance = btcBalance - btcAmount;
+    const newBtcBalance = btcBalance - btcToSell;
 
-    result.usdBalance += proceedsFromSale;
+    // The user's main balance only changes when they "withdraw" P/L
+    // So here we only add the cost basis back to the USD balance.
+    // The profit/loss portion is tracked in dailyGain/dailyLoss.
+    result.usdBalance += costOfBtcSold; 
     result.btcBalance = newBtcBalance;
     result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
-    result.btcAmountTraded = btcAmount;
+    result.btcAmountTraded = btcToSell;
 
     if (tradePL >= 0) {
       result.dailyGain = dailyGain + tradePL;
@@ -497,6 +500,7 @@ export default function TradingDashboard() {
         variant: "destructive",
         description: "Error processing withdrawal. Reverting changes.",
       });
+      // Revert state on error
       setUsdBalance(usdBalance);
       setDailyGain(dailyGain);
       setDailyLoss(dailyLoss);
@@ -505,7 +509,7 @@ export default function TradingDashboard() {
     }
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const portfolioValue = usdBalance + btcBalance * currentPrice + dailyGain + dailyLoss;
   const todaysPL = dailyGain + dailyLoss;
 
   if (isLoading) {
@@ -602,6 +606,16 @@ export default function TradingDashboard() {
                         <span>BTC Balance</span>
                       </div>
                       <span>{btcBalance.toFixed(8)}</span>
+                    </div>
+                     <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Avg. BTC Cost</span>
+                       <span>
+                        $
+                        {avgBtcCost.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t mt-2">
                       <div className="flex items-center gap-2">
@@ -725,3 +739,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
