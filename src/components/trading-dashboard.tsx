@@ -86,8 +86,7 @@ export default function TradingDashboard() {
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
-  const [initialPortfolioValue, setInitialPortfolioValue] = useState(0);
-
+  
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<'area' | 'candlestick'>('area');
@@ -116,12 +115,8 @@ export default function TradingDashboard() {
             const userData = snapshot.val();
             const today = new Date().toISOString().split("T")[0];
 
-            let initialUsd = userData.usdBalance ?? 1000;
-            let initialBtc = userData.btcBalance ?? 0;
-
-            setUsdBalance(initialUsd);
-            setBtcBalance(initialBtc);
-            setInitialPortfolioValue(initialUsd + initialBtc * currentPrice);
+            setUsdBalance(userData.usdBalance ?? 1000);
+            setBtcBalance(userData.btcBalance ?? 0);
 
             if (userData.lastLoginDate === today) {
                 setDailyGain(userData.dailyGain ?? 0);
@@ -132,7 +127,6 @@ export default function TradingDashboard() {
                 await set(ref(db, `users/${name}/dailyLoss`), 0);
                 setDailyGain(0);
                 setDailyLoss(0);
-                setInitialPortfolioValue(initialUsd + initialBtc * currentPrice);
             }
             
             setUsername(name);
@@ -147,7 +141,7 @@ export default function TradingDashboard() {
         toast({ variant: 'destructive', description: "Error connecting to the server." });
         return 'error';
     }
-  }, [toast, currentPrice]);
+  }, [toast]);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("bitsim_username");
@@ -287,13 +281,15 @@ export default function TradingDashboard() {
       return;
     }
     
-    // Apply delay
+    // Apply delay and handle loading state
     if (type === "sell") {
         await new Promise(resolve => setTimeout(resolve, 2000));
     } else {
         await new Promise(resolve => setTimeout(resolve, 500));
     }
     
+    const initialPortfolioValue = usdBalance + btcBalance * currentPrice;
+
     let newUsd, newBtc;
     if (type === "buy") {
       newUsd = usdBalance - amountInUsd;
@@ -307,30 +303,28 @@ export default function TradingDashboard() {
     setBtcBalance(newBtc);
 
     if (username) {
-      const userRef = ref(db, `users/${username}`);
-      const updates: any = {
-          usdBalance: newUsd,
-          btcBalance: newBtc,
-      };
-      
-      const currentPortfolioValue = newUsd + newBtc * currentPrice;
-      const pl = currentPortfolioValue - initialPortfolioValue;
-      
-      if (pl > 0) {
-        updates.dailyGain = pl;
-        updates.dailyLoss = 0;
-        setDailyGain(pl)
-        setDailyLoss(0)
-      } else {
-        updates.dailyGain = 0;
-        updates.dailyLoss = Math.abs(pl);
-        setDailyGain(0)
-        setDailyLoss(Math.abs(pl));
-      }
+        const finalPortfolioValue = newUsd + newBtc * currentPrice;
+        const tradePL = finalPortfolioValue - initialPortfolioValue;
+  
+        let newDailyGain = dailyGain;
+        let newDailyLoss = dailyLoss;
+  
+        if (tradePL > 0) {
+            newDailyGain += tradePL;
+        } else {
+            newDailyLoss += Math.abs(tradePL);
+        }
+  
+        setDailyGain(newDailyGain);
+        setDailyLoss(newDailyLoss);
 
+      const userRef = ref(db, `users/${username}`);
       await set(userRef, {
         ...(await get(userRef)).val(),
-        ...updates
+        usdBalance: newUsd,
+        btcBalance: newBtc,
+        dailyGain: newDailyGain,
+        dailyLoss: newDailyLoss,
       });
     }
     
@@ -486,5 +480,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
