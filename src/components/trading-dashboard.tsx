@@ -21,7 +21,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -276,8 +275,7 @@ export default function TradingDashboard() {
     setIsTrading(true);
 
     const { amount: amountInUsd } = values;
-    const btcAmountForTrade = amountInUsd / currentPrice;
-
+    
     if (type === "buy") {
       if (amountInUsd > usdBalance) {
         toast({ variant: "destructive", description: "Insufficient USD balance." });
@@ -287,6 +285,7 @@ export default function TradingDashboard() {
       
       await new Promise(resolve => setTimeout(resolve, 500));
 
+      const btcAmountForTrade = amountInUsd / currentPrice;
       const totalCostOfExistingBtc = btcBalance * avgBtcCost;
       const costOfNewBtc = amountInUsd;
       
@@ -300,14 +299,12 @@ export default function TradingDashboard() {
       setUsdBalance(newUsdBalance);
       setAvgBtcCost(newAvgCost);
       
-      // Persist to DB
       const userRef = ref(db, `users/${username}`);
-      const snapshot = await get(userRef);
-      await set(userRef, {
-          ...snapshot.val(),
-          usdBalance: newUsdBalance,
-          btcBalance: newTotalBtc,
-          avgBtcCost: newAvgCost,
+      await set(ref(db, `users/${username}`), {
+        ...(await get(userRef)).val(),
+        usdBalance: newUsdBalance,
+        btcBalance: newTotalBtc,
+        avgBtcCost: newAvgCost,
       });
 
       toast({
@@ -316,20 +313,22 @@ export default function TradingDashboard() {
       });
 
     } else { // sell
-      if (btcAmountForTrade > btcBalance) {
-        toast({ variant: "destructive", description: `Insufficient BTC balance. You can sell max ${btcBalance.toFixed(8)} BTC.` });
+      const btcAmountToSell = amountInUsd / avgBtcCost; // How much BTC the user wants to sell, based on its cost
+
+      if (btcAmountToSell > btcBalance) {
+        toast({ variant: "destructive", description: `Insufficient BTC balance. You can only sell up to what you own.` });
         setIsTrading(false);
         return;
       }
 
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const proceedsFromSale = amountInUsd;
-      const costOfBtcSold = btcAmountForTrade * avgBtcCost;
+      const proceedsFromSale = btcAmountToSell * currentPrice;
+      const costOfBtcSold = btcAmountToSell * avgBtcCost;
       const tradePL = proceedsFromSale - costOfBtcSold;
 
       const newUsdBalance = usdBalance + proceedsFromSale;
-      const newBtcBalance = btcBalance - btcAmountForTrade;
+      const newBtcBalance = btcBalance - btcAmountToSell;
       
       let newDailyGain = dailyGain;
       let newDailyLoss = dailyLoss;
@@ -340,20 +339,17 @@ export default function TradingDashboard() {
         newDailyLoss += Math.abs(tradePL);
       }
       
-      // If all BTC is sold, avg cost should be 0.
       const newAvgCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
 
-      setBtcBalance(newBtcBalance);
       setUsdBalance(newUsdBalance);
+      setBtcBalance(newBtcBalance);
       setDailyGain(newDailyGain);
       setDailyLoss(newDailyLoss);
       setAvgBtcCost(newAvgCost);
       
-      // Persist to DB
       const userRef = ref(db, `users/${username}`);
-      const snapshot = await get(userRef);
       await set(userRef, {
-        ...snapshot.val(),
+        ...(await get(userRef)).val(),
         usdBalance: newUsdBalance,
         btcBalance: newBtcBalance,
         dailyGain: newDailyGain,
@@ -363,7 +359,7 @@ export default function TradingDashboard() {
 
       toast({
         title: `Trade Successful`,
-        description: `Sold ${btcAmountForTrade.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
+        description: `Sold ${btcAmountToSell.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
         variant: tradePL >= 0 ? 'default' : 'destructive'
       });
     }
@@ -525,4 +521,3 @@ export default function TradingDashboard() {
 }
 
 
-    
