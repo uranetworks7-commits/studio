@@ -82,7 +82,7 @@ export default function TradingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
 
-  const [usdBalance, setUsdBalance] = useState<number>(0);
+  const [usdBalance, setUsdBalance] = useState<number>(10000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
@@ -116,7 +116,7 @@ export default function TradingDashboard() {
             const userData = snapshot.val();
             const today = new Date().toISOString().split("T")[0];
 
-            setUsdBalance(userData.usdBalance ?? 1000);
+            setUsdBalance(userData.usdBalance ?? 10000);
             setBtcBalance(userData.btcBalance ?? 0);
             setAvgBtcCost(userData.avgBtcCost ?? 0);
 
@@ -124,9 +124,14 @@ export default function TradingDashboard() {
                 setDailyGain(userData.dailyGain ?? 0);
                 setDailyLoss(userData.dailyLoss ?? 0);
             } else {
-                await set(ref(db, `users/${name}/lastLoginDate`), today);
-                await set(ref(db, `users/${name}/dailyGain`), 0);
-                await set(ref(db, `users/${name}/dailyLoss`), 0);
+                // It's a new day, reset daily P/L
+                const userRef = ref(db, `users/${name}`);
+                await set(userRef, {
+                    ...userData,
+                    dailyGain: 0,
+                    dailyLoss: 0,
+                    lastLoginDate: today,
+                });
                 setDailyGain(0);
                 setDailyLoss(0);
             }
@@ -178,8 +183,9 @@ export default function TradingDashboard() {
     const updatePrice = () => {
       setCurrentPrice((prevPrice) => {
         const changePercent = stateBehaviors[marketState].change();
-        const newPrice = prevPrice * (1 + changePercent);
-        return newPrice > 1 ? newPrice : prevPrice; 
+        let newPrice = prevPrice * (1 + changePercent);
+        if (newPrice < 1) newPrice = 1; // Prevent price from going to zero
+        return newPrice;
       });
   
       const [minInterval, maxInterval] = stateBehaviors[marketState].updateInterval;
@@ -204,43 +210,42 @@ export default function TradingDashboard() {
     setPriceHistory((prevHistory) => {
         const newTime = new Date();
         const newEntry: PriceData = {
-          time: newTime.toLocaleTimeString(),
+          time: newTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           price: currentPrice,
         };
     
-        let updatedHistory = [...prevHistory, newEntry].filter(p => p.price); 
-    
-        if (chartType === 'candlestick') {
-            const candleStickReadyHistory = updatedHistory.filter(p => !p.ohlc);
-            if (candleStickReadyHistory.length >= CANDLESTICK_INTERVAL) {
-                const candleData = candleStickReadyHistory.slice(0, CANDLESTICK_INTERVAL);
+        const historyWithNewEntry = [...prevHistory, newEntry];
 
-                const open = candleData[0].price;
-                const close = candleData[candleData.length - 1].price;
-                const high = Math.max(...candleData.map(p => p.price));
-                const low = Math.min(...candleData.map(p => p.price));
-                const candleTime = candleData[0].time;
-                
-                const candleEntry: PriceData = {
-                  time: candleTime.split(':')[0] + ':' + candleTime.split(':')[1],
-                  price: close,
-                  ohlc: [open, high, low, close]
-                };
-                
-                const remainingHistory = updatedHistory.slice(CANDLESTICK_INTERVAL);
-                
-                return [...prevHistory.filter(p=> p.ohlc), candleEntry, ...remainingHistory].slice(-PRICE_HISTORY_LENGTH);
+        if (chartType === 'candlestick') {
+            const candles = [];
+            let currentOhlcPoints = [];
+            
+            // Re-calculate all candles from history to ensure accuracy
+            for(let i = 0; i < historyWithNewEntry.length; i++) {
+                currentOhlcPoints.push(historyWithNewEntry[i]);
+                if (currentOhlcPoints.length === CANDLESTICK_INTERVAL) {
+                    const open = currentOhlcPoints[0].price;
+                    const close = currentOhlcPoints[currentOhlcPoints.length - 1].price;
+                    const high = Math.max(...currentOhlcPoints.map(p => p.price));
+                    const low = Math.min(...currentOhlcPoints.map(p => p.price));
+                    const candleTime = currentOhlcPoints[0].time;
+
+                    candles.push({
+                        time: candleTime.substring(0, 5),
+                        price: close,
+                        ohlc: [open, high, low, close] as [number, number, number, number]
+                    });
+                    currentOhlcPoints = [];
+                }
             }
-            return updatedHistory;
+            return candles.slice(-PRICE_HISTORY_LENGTH);
         } else {
-            const areaHistory = updatedHistory.map(({price, time}) => ({price, time}));
-            if (areaHistory.length > PRICE_HISTORY_LENGTH) {
-                return areaHistory.slice(areaHistory.length - PRICE_HISTORY_LENGTH);
-            }
-            return areaHistory;
+            const areaHistory = historyWithNewEntry.map(({price, time}) => ({price, time}));
+            return areaHistory.slice(-PRICE_HISTORY_LENGTH);
         }
       });
   }, [currentPrice, chartType, username]);
+
 
   const handleLogout = () => {
     setUsername(null);
@@ -266,11 +271,12 @@ export default function TradingDashboard() {
   }
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    if (isTrading) return;
+    if (isTrading || !username) return;
 
     setIsTrading(true);
+
     const { amount: amountInUsd } = values;
-    const amountInBtc = amountInUsd / currentPrice;
+    const btcAmountForTrade = amountInUsd / currentPrice;
 
     if (type === "buy") {
       if (amountInUsd > usdBalance) {
@@ -281,84 +287,89 @@ export default function TradingDashboard() {
       
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      const totalBtcValue = (btcBalance * avgBtcCost) + amountInUsd;
-      const newBtc = btcBalance + amountInBtc;
-      const newUsd = usdBalance - amountInUsd;
-      const newAvgCost = totalBtcValue / newBtc;
+      const totalCostOfExistingBtc = btcBalance * avgBtcCost;
+      const costOfNewBtc = amountInUsd;
       
-      setBtcBalance(newBtc);
-      setUsdBalance(newUsd);
-      setAvgBtcCost(newAvgCost);
+      const newTotalBtc = btcBalance + btcAmountForTrade;
+      const newTotalCost = totalCostOfExistingBtc + costOfNewBtc;
+      const newAvgCost = newTotalCost / newTotalBtc;
+      
+      const newUsdBalance = usdBalance - amountInUsd;
 
-      if (username) {
-        const userRef = ref(db, `users/${username}`);
-        await set(userRef, {
-          ...(await get(userRef)).val(),
-          usdBalance: newUsd,
-          btcBalance: newBtc,
+      setBtcBalance(newTotalBtc);
+      setUsdBalance(newUsdBalance);
+      setAvgBtcCost(newAvgCost);
+      
+      // Persist to DB
+      const userRef = ref(db, `users/${username}`);
+      const snapshot = await get(userRef);
+      await set(userRef, {
+          ...snapshot.val(),
+          usdBalance: newUsdBalance,
+          btcBalance: newTotalBtc,
           avgBtcCost: newAvgCost,
-        });
-      }
+      });
 
       toast({
         title: `Trade Successful`,
-        description: `Bought ${amountInBtc.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+        description: `Bought ${btcAmountForTrade.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
       });
 
     } else { // sell
-      if (amountInBtc > btcBalance) {
-        toast({ variant: "destructive", description: "Insufficient BTC balance." });
+      if (btcAmountForTrade > btcBalance) {
+        toast({ variant: "destructive", description: `Insufficient BTC balance. You can sell max ${btcBalance.toFixed(8)} BTC.` });
         setIsTrading(false);
         return;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const newBtc = btcBalance - amountInBtc;
-      const newUsd = usdBalance + amountInUsd;
+      const proceedsFromSale = amountInUsd;
+      const costOfBtcSold = btcAmountForTrade * avgBtcCost;
+      const tradePL = proceedsFromSale - costOfBtcSold;
 
-      const costOfBtcSold = amountInBtc * avgBtcCost;
-      const tradePL = amountInUsd - costOfBtcSold;
-
+      const newUsdBalance = usdBalance + proceedsFromSale;
+      const newBtcBalance = btcBalance - btcAmountForTrade;
+      
       let newDailyGain = dailyGain;
       let newDailyLoss = dailyLoss;
-
+      
       if (tradePL > 0) {
         newDailyGain += tradePL;
       } else {
         newDailyLoss += Math.abs(tradePL);
       }
       
-      setBtcBalance(newBtc);
-      setUsdBalance(newUsd);
+      // If all BTC is sold, avg cost should be 0.
+      const newAvgCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
+
+      setBtcBalance(newBtcBalance);
+      setUsdBalance(newUsdBalance);
       setDailyGain(newDailyGain);
       setDailyLoss(newDailyLoss);
+      setAvgBtcCost(newAvgCost);
       
-      // If all BTC is sold, reset avg cost.
-      if (newBtc < 0.00000001) {
-          setAvgBtcCost(0);
-      }
-      
-      if (username) {
-        const userRef = ref(db, `users/${username}`);
-        const newAvgCost = newBtc < 0.00000001 ? 0 : avgBtcCost;
-        await set(userRef, {
-          ...(await get(userRef)).val(),
-          usdBalance: newUsd,
-          btcBalance: newBtc,
-          dailyGain: newDailyGain,
-          dailyLoss: newDailyLoss,
-          avgBtcCost: newAvgCost,
-        });
-      }
+      // Persist to DB
+      const userRef = ref(db, `users/${username}`);
+      const snapshot = await get(userRef);
+      await set(userRef, {
+        ...snapshot.val(),
+        usdBalance: newUsdBalance,
+        btcBalance: newBtcBalance,
+        dailyGain: newDailyGain,
+        dailyLoss: newDailyLoss,
+        avgBtcCost: newAvgCost,
+      });
 
       toast({
         title: `Trade Successful`,
-        description: `Sold ${amountInBtc.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
+        description: `Sold ${btcAmountForTrade.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
+        variant: tradePL >= 0 ? 'default' : 'destructive'
       });
     }
 
     setIsTrading(false);
+    form.reset();
   };
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
@@ -463,7 +474,7 @@ export default function TradingDashboard() {
                 <CardDescription>Buy or sell Bitcoin.</CardDescription>
               </CardHeader>
               <Form {...form}>
-                <form>
+                <form onSubmit={(e) => e.preventDefault()}>
                   <CardContent className="space-y-4">
                     <FormField
                       control={form.control}
@@ -512,5 +523,6 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
 
     
