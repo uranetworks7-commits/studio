@@ -156,20 +156,16 @@ function calculateTrade(
     const proceedsFromSale = amountInUsd;
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
-    const newBtcBalance = btcBalance - btcToSell;
-
-    // We do not modify the main USD balance here. 
-    // The cost basis of the sold asset is conceptually returned to the user's trading capital
-    // and the profit/loss portion is tracked separately until "withdrawn".
-    result.btcBalance = newBtcBalance;
-    result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost; // Reset if they sell all BTC
+    
+    result.btcBalance -= btcToSell;
+    result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
     result.btcAmountTraded = btcToSell;
 
     if (tradePL >= 0) {
-      result.dailyGain = dailyGain + tradePL;
+      result.dailyGain += tradePL;
     } else {
-      result.dailyLoss = dailyLoss + tradePL;
+      result.dailyLoss += tradePL;
     }
   }
   return result;
@@ -446,6 +442,7 @@ export default function TradingDashboard() {
         variant: "destructive",
         description: "Error saving trade. Reverting changes.",
       });
+      // Revert state on error
       setUsdBalance(currentUserData.usdBalance);
       setBtcBalance(currentUserData.btcBalance);
       setAvgBtcCost(currentUserData.avgBtcCost);
@@ -472,10 +469,12 @@ export default function TradingDashboard() {
     }
     
     const newUsdBalance = usdBalance + todaysPL;
-
+    const newDailyGain = 0;
+    const newDailyLoss = 0;
+    
     setUsdBalance(newUsdBalance);
-    setDailyGain(0);
-    setDailyLoss(0);
+    setDailyGain(newDailyGain);
+    setDailyLoss(newDailyLoss);
 
     try {
       const userRef = ref(db, `users/${username}`);
@@ -485,8 +484,8 @@ export default function TradingDashboard() {
         await set(userRef, {
           ...currentData,
           usdBalance: newUsdBalance,
-          dailyGain: 0,
-          dailyLoss: 0,
+          dailyGain: newDailyGain,
+          dailyLoss: newDailyLoss,
         });
         toast({
           title: "Withdrawal Successful",
@@ -508,7 +507,7 @@ export default function TradingDashboard() {
     }
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice + dailyGain + dailyLoss;
+  const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain + dailyLoss;
 
   if (isLoading) {
@@ -728,3 +727,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
