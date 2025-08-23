@@ -46,7 +46,7 @@ import {
 import { useViewport } from "@/context/viewport-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { get, ref, set } from "firebase/database";
+import { get, ref, update, set } from "firebase/database";
 import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
 
@@ -316,11 +316,12 @@ export default function TradingDashboard() {
       }),
       price: currentPrice,
     };
-
-    setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
-
+    
+    const updateRawHistory = (prev: PriceData[]) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
+    setRawPriceHistory(updateRawHistory);
+    
     if (chartType === 'candlestick') {
-        const tempHistory = [...rawPriceHistory, newEntry];
+        const tempHistory = updateRawHistory(rawPriceHistory);
         const candles = [];
         let i = 0;
         while (i < tempHistory.length) {
@@ -414,7 +415,7 @@ export default function TradingDashboard() {
 
     try {
       const userRef = ref(db, `users/${username}`);
-      await set(userRef, {
+      await update(userRef, {
         usdBalance: result.usdBalance,
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
@@ -479,11 +480,7 @@ export default function TradingDashboard() {
 
     try {
       const userRef = ref(db, `users/${username}`);
-      const snapshot = await get(userRef);
-      if (snapshot.exists()) {
-        const currentData = snapshot.val();
-        await set(userRef, {
-          ...currentData,
+      await update(userRef, {
           usdBalance: newUsdBalance,
           dailyGain: newDailyGain,
           dailyLoss: newDailyLoss,
@@ -500,7 +497,6 @@ export default function TradingDashboard() {
             2
           )} has been transferred to your USD balance.`,
         });
-      }
     } catch (err) {
       console.error("Firebase error during withdrawal: ", err);
       toast({
@@ -750,3 +746,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
