@@ -11,7 +11,6 @@ import {
   LogOut,
   MessageSquare,
   User,
-  Wallet,
 } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -22,7 +21,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -109,16 +107,15 @@ function calculateTrade(
 
     } else { // sell
         const btcAmountToSell = amountInUsd / price; 
-        const proceedsFromSale = amountInUsd;
+        const proceedsFromSale = btcAmountToSell * price; // Actual proceeds from sale
         const costOfBtcSold = btcAmountToSell * avgBtcCost;
         const tradePL = proceedsFromSale - costOfBtcSold;
         
         const newBtcBalance = btcBalance - btcAmountToSell;
 
-        // This is the corrected logic:
-        result.usdBalance += proceedsFromSale; // The balance increases by the full amount of the sale
+        result.usdBalance += proceedsFromSale; // Balance increases by the full proceeds of the sale
         result.btcBalance = newBtcBalance;
-        result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
+        result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost; // Reset avg cost if all BTC is sold
         result.tradePL = tradePL;
         result.btcAmountTraded = btcAmountToSell;
 
@@ -137,8 +134,7 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-
+  
   const [usdBalance, setUsdBalance] = useState<number>(10000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
@@ -177,6 +173,7 @@ export default function TradingDashboard() {
             setBtcBalance(userData.btcBalance ?? 0);
             setAvgBtcCost(userData.avgBtcCost ?? 0);
 
+            // Reset daily P/L if it's a new day
             if (userData.lastLoginDate === today) {
                 setDailyGain(userData.dailyGain ?? 0);
                 setDailyLoss(userData.dailyLoss ?? 0);
@@ -329,7 +326,6 @@ export default function TradingDashboard() {
     if (isTrading || !username) return;
     
     setIsTrading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
     
     const { amount: amountInUsd } = values;
     const currentUserData: UserData = { usdBalance, btcBalance, avgBtcCost, dailyGain, dailyLoss };
@@ -349,6 +345,7 @@ export default function TradingDashboard() {
 
     const result = calculateTrade(type, amountInUsd, currentPrice, currentUserData);
 
+    // Update state from result
     setUsdBalance(result.usdBalance);
     setBtcBalance(result.btcBalance);
     setAvgBtcCost(result.avgBtcCost);
@@ -357,23 +354,28 @@ export default function TradingDashboard() {
 
     try {
         const userRef = ref(db, `users/${username}`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-            await set(userRef, {
-                ...snapshot.val(),
-                usdBalance: result.usdBalance,
-                btcBalance: result.btcBalance,
-                avgBtcCost: result.avgBtcCost,
-                dailyGain: result.dailyGain,
-                dailyLoss: result.dailyLoss,
-            });
-        }
+        // Save the entire updated user data object
+        await set(userRef, {
+            usdBalance: result.usdBalance,
+            btcBalance: result.btcBalance,
+            avgBtcCost: result.avgBtcCost,
+            dailyGain: result.dailyGain,
+            dailyLoss: result.dailyLoss,
+            lastLoginDate: new Date().toISOString().split("T")[0],
+        });
     } catch (err) {
         console.error("Firebase error during trade: ", err);
-        toast({ variant: 'destructive', description: "Error saving trade to the server." });
-        // NOTE: Here you might want to revert the state change if the DB write fails.
-        // For this simulation, we'll keep it simple and assume success.
+        toast({ variant: 'destructive', description: "Error saving trade to the server. Reverting local changes." });
+        // Revert local state if DB write fails
+        setUsdBalance(currentUserData.usdBalance);
+        setBtcBalance(currentUserData.btcBalance);
+        setAvgBtcCost(currentUserData.avgBtcCost);
+        setDailyGain(currentUserData.dailyGain);
+        setDailyLoss(currentUserData.dailyLoss);
+    } finally {
+        setIsTrading(false);
     }
+
 
     if (type === 'buy') {
         toast({
@@ -388,56 +390,9 @@ export default function TradingDashboard() {
         });
     }
 
-    setIsTrading(false);
     form.reset({ amount: 100 });
   };
   
-  const handleWithdraw = async () => {
-    if (!username || isWithdrawing) return;
-
-    setIsWithdrawing(true);
-    const todaysPL = dailyGain - dailyLoss;
-
-    if (Math.abs(todaysPL) < 0.01) {
-        toast({
-            description: "No profit or loss to withdraw.",
-        });
-        setIsWithdrawing(false);
-        return;
-    }
-
-    const newUsdBalance = usdBalance + todaysPL;
-    setUsdBalance(newUsdBalance);
-    setDailyGain(0);
-    setDailyLoss(0);
-
-    try {
-        const userRef = ref(db, `users/${username}`);
-        const snapshot = await get(userRef);
-        if (snapshot.exists()) {
-            await set(userRef, {
-                ...snapshot.val(),
-                usdBalance: newUsdBalance,
-                dailyGain: 0,
-                dailyLoss: 0,
-            });
-        }
-        toast({
-            title: "Withdrawal Successful",
-            description: `$${todaysPL.toFixed(2)} has been transferred to your USD Balance.`,
-        });
-    } catch (err) {
-        console.error("Firebase error during withdrawal: ", err);
-        toast({ variant: 'destructive', description: "Error saving withdrawal to the server." });
-        // Revert state on failure
-        setUsdBalance(usdBalance);
-        setDailyGain(dailyGain);
-        setDailyLoss(dailyLoss);
-    } finally {
-        setIsWithdrawing(false);
-    }
-  };
-
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
@@ -527,10 +482,6 @@ export default function TradingDashboard() {
                         {todaysPL >= 0 ? '+' : '-'}${Math.abs(todaysPL).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={isWithdrawing}>
-                    {isWithdrawing ? <Loader2 className="animate-spin" /> : <Wallet className="h-4 w-4" />}
-                    <span className="ml-2">Withdraw</span>
-                  </Button>
                 </div>
                 </>
               ) : (
