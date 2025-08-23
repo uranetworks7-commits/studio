@@ -21,6 +21,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -107,15 +108,15 @@ function calculateTrade(
 
     } else { // sell
         const btcAmountToSell = amountInUsd / price; 
-        const proceedsFromSale = btcAmountToSell * price; // Actual proceeds from sale
+        const proceedsFromSale = btcAmountToSell * price;
         const costOfBtcSold = btcAmountToSell * avgBtcCost;
         const tradePL = proceedsFromSale - costOfBtcSold;
         
         const newBtcBalance = btcBalance - btcAmountToSell;
 
-        result.usdBalance += proceedsFromSale; // Balance increases by the full proceeds of the sale
+        result.usdBalance += proceedsFromSale;
         result.btcBalance = newBtcBalance;
-        result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost; // Reset avg cost if all BTC is sold
+        result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
         result.tradePL = tradePL;
         result.btcAmountTraded = btcAmountToSell;
 
@@ -173,7 +174,6 @@ export default function TradingDashboard() {
             setBtcBalance(userData.btcBalance ?? 0);
             setAvgBtcCost(userData.avgBtcCost ?? 0);
 
-            // Reset daily P/L if it's a new day
             if (userData.lastLoginDate === today) {
                 setDailyGain(userData.dailyGain ?? 0);
                 setDailyLoss(userData.dailyLoss ?? 0);
@@ -336,16 +336,15 @@ export default function TradingDashboard() {
         return;
     }
     
-    const btcValue = btcBalance * currentPrice;
-    if (type === "sell" && amountInUsd > btcValue) {
-        toast({ variant: "destructive", description: `Insufficient BTC balance. You can sell up to $${btcValue.toFixed(2)}.` });
+    const btcAmountToSell = amountInUsd / currentPrice;
+    if (type === "sell" && btcAmountToSell > btcBalance) {
+        toast({ variant: "destructive", description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.` });
         setIsTrading(false);
         return;
     }
 
     const result = calculateTrade(type, amountInUsd, currentPrice, currentUserData);
 
-    // Update state from result
     setUsdBalance(result.usdBalance);
     setBtcBalance(result.btcBalance);
     setAvgBtcCost(result.avgBtcCost);
@@ -354,7 +353,6 @@ export default function TradingDashboard() {
 
     try {
         const userRef = ref(db, `users/${username}`);
-        // Save the entire updated user data object
         await set(userRef, {
             usdBalance: result.usdBalance,
             btcBalance: result.btcBalance,
@@ -363,10 +361,22 @@ export default function TradingDashboard() {
             dailyLoss: result.dailyLoss,
             lastLoginDate: new Date().toISOString().split("T")[0],
         });
+
+        if (type === 'buy') {
+            toast({
+                title: `Trade Successful`,
+                description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+            });
+        } else {
+            toast({
+                title: `Trade Successful`,
+                description: `Sold ${result.btcAmountTraded.toFixed(8)} BTC. P/L: $${result.tradePL.toFixed(2)}`,
+                variant: result.tradePL >= 0 ? 'default' : 'destructive'
+            });
+        }
     } catch (err) {
         console.error("Firebase error during trade: ", err);
-        toast({ variant: 'destructive', description: "Error saving trade to the server. Reverting local changes." });
-        // Revert local state if DB write fails
+        toast({ variant: 'destructive', description: "Error saving trade. Reverting changes." });
         setUsdBalance(currentUserData.usdBalance);
         setBtcBalance(currentUserData.btcBalance);
         setAvgBtcCost(currentUserData.avgBtcCost);
@@ -374,23 +384,8 @@ export default function TradingDashboard() {
         setDailyLoss(currentUserData.dailyLoss);
     } finally {
         setIsTrading(false);
+        form.reset({ amount: 100 });
     }
-
-
-    if (type === 'buy') {
-        toast({
-            title: `Trade Successful`,
-            description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
-        });
-    } else {
-        toast({
-            title: `Trade Successful`,
-            description: `Sold ${result.btcAmountTraded.toFixed(8)} BTC. P/L: $${result.tradePL.toFixed(2)}`,
-            variant: result.tradePL >= 0 ? 'default' : 'destructive'
-        });
-    }
-
-    form.reset({ amount: 100 });
   };
   
 
@@ -413,7 +408,7 @@ export default function TradingDashboard() {
     <div className="flex flex-col h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-headline font-bold text-primary">URA Trade Pro</h1>
+            <h1 className="text-2xl font-headline font-bold text-primary">BitSim RealTrade</h1>
             <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
                 <span>Market:</span>
                 <span className="font-bold text-foreground">{marketState.replace('_', ' ')}</span>
