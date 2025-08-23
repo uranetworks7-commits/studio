@@ -56,7 +56,7 @@ const formSchema = z.object({
 type TradeFormValues = z.infer<typeof formSchema>;
 
 const INITIAL_PRICE = 65000;
-const PRICE_HISTORY_LENGTH = 200; // Increased for better trend visibility
+const PRICE_HISTORY_LENGTH = 400; // Display more data points for a better overview
 const CANDLESTICK_INTERVAL = 5;
 
 interface PriceData { 
@@ -107,7 +107,6 @@ export default function TradingDashboard() {
   });
 
   const handleUserLogin = useCallback(async (name: string): Promise<'success' | 'not_found' | 'error'> => {
-    setIsLoading(true);
     try {
         const userRef = ref(db, `users/${name}`);
         const snapshot = await get(userRef);
@@ -149,8 +148,6 @@ export default function TradingDashboard() {
         console.error("Firebase error during login: ", err);
         toast({ variant: 'destructive', description: "Error connecting to the server." });
         return 'error';
-    } finally {
-        setIsLoading(false);
     }
   }, [toast]);
   
@@ -161,8 +158,8 @@ export default function TradingDashboard() {
         handleUserLogin(storedUsername);
     } else {
       setIsModalOpen(true);
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, [handleUserLogin]);
 
   const scheduleNextMarketState = useCallback(() => {
