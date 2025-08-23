@@ -11,6 +11,7 @@ import {
   LogOut,
   MessageSquare,
   User,
+  Wallet,
 } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -114,7 +115,8 @@ function calculateTrade(
         
         const newBtcBalance = btcBalance - btcAmountToSell;
 
-        result.usdBalance += proceedsFromSale;
+        // This is the corrected logic:
+        result.usdBalance += proceedsFromSale; // The balance increases by the full amount of the sale
         result.btcBalance = newBtcBalance;
         result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
         result.tradePL = tradePL;
@@ -135,6 +137,7 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const [usdBalance, setUsdBalance] = useState<number>(10000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
@@ -389,6 +392,52 @@ export default function TradingDashboard() {
     form.reset({ amount: 100 });
   };
   
+  const handleWithdraw = async () => {
+    if (!username || isWithdrawing) return;
+
+    setIsWithdrawing(true);
+    const todaysPL = dailyGain - dailyLoss;
+
+    if (Math.abs(todaysPL) < 0.01) {
+        toast({
+            description: "No profit or loss to withdraw.",
+        });
+        setIsWithdrawing(false);
+        return;
+    }
+
+    const newUsdBalance = usdBalance + todaysPL;
+    setUsdBalance(newUsdBalance);
+    setDailyGain(0);
+    setDailyLoss(0);
+
+    try {
+        const userRef = ref(db, `users/${username}`);
+        const snapshot = await get(userRef);
+        if (snapshot.exists()) {
+            await set(userRef, {
+                ...snapshot.val(),
+                usdBalance: newUsdBalance,
+                dailyGain: 0,
+                dailyLoss: 0,
+            });
+        }
+        toast({
+            title: "Withdrawal Successful",
+            description: `$${todaysPL.toFixed(2)} has been transferred to your USD Balance.`,
+        });
+    } catch (err) {
+        console.error("Firebase error during withdrawal: ", err);
+        toast({ variant: 'destructive', description: "Error saving withdrawal to the server." });
+        // Revert state on failure
+        setUsdBalance(usdBalance);
+        setDailyGain(dailyGain);
+        setDailyLoss(dailyLoss);
+    } finally {
+        setIsWithdrawing(false);
+    }
+  };
+
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
@@ -472,10 +521,16 @@ export default function TradingDashboard() {
                     <span>${avgBtcCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t mt-2">
-                  <span className="text-muted-foreground">Today's P/L</span>
-                  <span className={`font-bold ${todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {todaysPL >= 0 ? '+' : '-'}${Math.abs(todaysPL).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Today's P/L</span>
+                    <span className={`font-bold ${todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {todaysPL >= 0 ? '+' : '-'}${Math.abs(todaysPL).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={isWithdrawing}>
+                    {isWithdrawing ? <Loader2 className="animate-spin" /> : <Wallet className="h-4 w-4" />}
+                    <span className="ml-2">Withdraw</span>
+                  </Button>
                 </div>
                 </>
               ) : (
@@ -542,3 +597,4 @@ export default function TradingDashboard() {
   );
 }
 
+    
