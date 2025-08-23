@@ -46,7 +46,7 @@ import {
 import { useViewport } from "@/context/viewport-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { get, ref, update, set } from "firebase/database";
+import { get, ref, update } from "firebase/database";
 import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
 
@@ -321,7 +321,7 @@ export default function TradingDashboard() {
     setRawPriceHistory(updateRawHistory);
     
     if (chartType === 'candlestick') {
-        const tempHistory = updateRawHistory(rawPriceHistory);
+        const tempHistory = [...rawPriceHistory, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
         const candles = [];
         let i = 0;
         while (i < tempHistory.length) {
@@ -412,16 +412,18 @@ export default function TradingDashboard() {
       currentPrice,
       currentUserData
     );
+    const updatedValues = {
+      usdBalance: result.usdBalance,
+      btcBalance: result.btcBalance,
+      avgBtcCost: result.avgBtcCost,
+      dailyGain: result.dailyGain,
+      dailyLoss: result.dailyLoss,
+    };
+
 
     try {
       const userRef = ref(db, `users/${username}`);
-      await update(userRef, {
-        usdBalance: result.usdBalance,
-        btcBalance: result.btcBalance,
-        avgBtcCost: result.avgBtcCost,
-        dailyGain: result.dailyGain,
-        dailyLoss: result.dailyLoss,
-      });
+      await update(userRef, updatedValues);
 
       // State updates after successful save
       setUsdBalance(result.usdBalance);
@@ -456,7 +458,7 @@ export default function TradingDashboard() {
       });
     } finally {
       setIsTrading(false);
-      form.reset({ amount: 100 });
+      form.reset({ amount: amountInUsd });
     }
   };
 
@@ -746,5 +748,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
