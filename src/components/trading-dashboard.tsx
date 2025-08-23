@@ -84,6 +84,7 @@ export default function TradingDashboard() {
 
   const [usdBalance, setUsdBalance] = useState<number>(0);
   const [btcBalance, setBtcBalance] = useState<number>(0);
+  const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
   
@@ -117,6 +118,7 @@ export default function TradingDashboard() {
 
             setUsdBalance(userData.usdBalance ?? 1000);
             setBtcBalance(userData.btcBalance ?? 0);
+            setAvgBtcCost(userData.avgBtcCost ?? 0);
 
             if (userData.lastLoginDate === today) {
                 setDailyGain(userData.dailyGain ?? 0);
@@ -244,6 +246,7 @@ export default function TradingDashboard() {
     setUsername(null);
     setUsdBalance(0);
     setBtcBalance(0);
+    setAvgBtcCost(0);
     setDailyGain(0);
     setDailyLoss(0);
     setPriceHistory([]);
@@ -269,69 +272,92 @@ export default function TradingDashboard() {
     const { amount: amountInUsd } = values;
     const amountInBtc = amountInUsd / currentPrice;
 
-    if (type === "buy" && amountInUsd > usdBalance) {
-      toast({ variant: "destructive", description: "Insufficient USD balance." });
-      setIsTrading(false);
-      return;
-    }
-
-    if (type === "sell" && amountInBtc > btcBalance) {
-      toast({ variant: "destructive", description: "Insufficient BTC balance." });
-      setIsTrading(false);
-      return;
-    }
-    
-    // Apply delay and handle loading state
-    if (type === "sell") {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    } else {
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    const initialPortfolioValue = usdBalance + btcBalance * currentPrice;
-
-    let newUsd, newBtc;
     if (type === "buy") {
-      newUsd = usdBalance - amountInUsd;
-      newBtc = btcBalance + amountInBtc;
-    } else {
-      newUsd = usdBalance + amountInUsd;
-      newBtc = btcBalance - amountInBtc;
-    }
-    
-    setUsdBalance(newUsd);
-    setBtcBalance(newBtc);
+      if (amountInUsd > usdBalance) {
+        toast({ variant: "destructive", description: "Insufficient USD balance." });
+        setIsTrading(false);
+        return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (username) {
-        const finalPortfolioValue = newUsd + newBtc * currentPrice;
-        const tradePL = finalPortfolioValue - initialPortfolioValue;
-  
-        let newDailyGain = dailyGain;
-        let newDailyLoss = dailyLoss;
-  
-        if (tradePL > 0) {
-            newDailyGain += tradePL;
-        } else {
-            newDailyLoss += Math.abs(tradePL);
-        }
-  
-        setDailyGain(newDailyGain);
-        setDailyLoss(newDailyLoss);
+      const totalBtcValue = (btcBalance * avgBtcCost) + amountInUsd;
+      const newBtc = btcBalance + amountInBtc;
+      const newUsd = usdBalance - amountInUsd;
+      const newAvgCost = totalBtcValue / newBtc;
+      
+      setBtcBalance(newBtc);
+      setUsdBalance(newUsd);
+      setAvgBtcCost(newAvgCost);
 
-      const userRef = ref(db, `users/${username}`);
-      await set(userRef, {
-        ...(await get(userRef)).val(),
-        usdBalance: newUsd,
-        btcBalance: newBtc,
-        dailyGain: newDailyGain,
-        dailyLoss: newDailyLoss,
+      if (username) {
+        const userRef = ref(db, `users/${username}`);
+        await set(userRef, {
+          ...(await get(userRef)).val(),
+          usdBalance: newUsd,
+          btcBalance: newBtc,
+          avgBtcCost: newAvgCost,
+        });
+      }
+
+      toast({
+        title: `Trade Successful`,
+        description: `Bought ${amountInBtc.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+      });
+
+    } else { // sell
+      if (amountInBtc > btcBalance) {
+        toast({ variant: "destructive", description: "Insufficient BTC balance." });
+        setIsTrading(false);
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const newBtc = btcBalance - amountInBtc;
+      const newUsd = usdBalance + amountInUsd;
+
+      const costOfBtcSold = amountInBtc * avgBtcCost;
+      const tradePL = amountInUsd - costOfBtcSold;
+
+      let newDailyGain = dailyGain;
+      let newDailyLoss = dailyLoss;
+
+      if (tradePL > 0) {
+        newDailyGain += tradePL;
+      } else {
+        newDailyLoss += Math.abs(tradePL);
+      }
+      
+      setBtcBalance(newBtc);
+      setUsdBalance(newUsd);
+      setDailyGain(newDailyGain);
+      setDailyLoss(newDailyLoss);
+      
+      // If all BTC is sold, reset avg cost.
+      if (newBtc < 0.00000001) {
+          setAvgBtcCost(0);
+      }
+      
+      if (username) {
+        const userRef = ref(db, `users/${username}`);
+        const newAvgCost = newBtc < 0.00000001 ? 0 : avgBtcCost;
+        await set(userRef, {
+          ...(await get(userRef)).val(),
+          usdBalance: newUsd,
+          btcBalance: newBtc,
+          dailyGain: newDailyGain,
+          dailyLoss: newDailyLoss,
+          avgBtcCost: newAvgCost,
+        });
+      }
+
+      toast({
+        title: `Trade Successful`,
+        description: `Sold ${amountInBtc.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
       });
     }
-    
-    toast({
-      title: `Trade Successful`,
-      description: `Your ${type} order for $${amountInUsd.toFixed(2)} has been executed.`,
-    });
+
     setIsTrading(false);
   };
 
@@ -410,6 +436,12 @@ export default function TradingDashboard() {
                     </div>
                   <span>{btcBalance.toFixed(8)}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="pl-7">Avg. Cost</span>
+                    </div>
+                    <span>${avgBtcCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
                 <div className="flex items-center justify-between pt-2 border-t mt-2">
                   <span className="text-muted-foreground">Today's P/L</span>
                   <span className={`font-bold ${todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -480,3 +512,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
