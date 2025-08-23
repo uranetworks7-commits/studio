@@ -11,7 +11,6 @@ import {
   LogOut,
   MessageSquare,
   User,
-  Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -124,8 +123,6 @@ interface UserData {
   usdBalance: number;
   btcBalance: number;
   avgBtcCost: number;
-  dailyGain: number;
-  dailyLoss: number;
 }
 
 function calculateTrade(
@@ -134,39 +131,36 @@ function calculateTrade(
   price: number,
   currentUserData: UserData
 ) {
-  const { usdBalance, btcBalance, avgBtcCost, dailyGain, dailyLoss } =
-    currentUserData;
-  let result = { ...currentUserData, tradePL: 0, btcAmountTraded: 0 };
-  const btcAmountTraded = amountInUsd / price;
+  const { usdBalance, btcBalance, avgBtcCost } = currentUserData;
+  let result = {
+    ...currentUserData,
+    tradePL: 0,
+    btcAmountTraded: 0,
+  };
+  const btcAmount = amountInUsd / price;
 
   if (tradeType === "buy") {
     const costOfNewBtc = amountInUsd;
     const totalCostOfExistingBtc = btcBalance * avgBtcCost;
-    const newTotalBtc = btcBalance + btcAmountTraded;
+    const newTotalBtc = btcBalance + btcAmount;
     const newTotalCost = totalCostOfExistingBtc + costOfNewBtc;
 
     result.usdBalance -= costOfNewBtc;
     result.btcBalance = newTotalBtc;
     result.avgBtcCost = newTotalBtc > 0 ? newTotalCost / newTotalBtc : 0;
-    result.btcAmountTraded = btcAmountTraded;
+    result.btcAmountTraded = btcAmount;
   } else {
     // sell
-    const proceedsFromSale = btcAmountTraded * price;
-    const costOfBtcSold = btcAmountTraded * avgBtcCost;
+    const proceedsFromSale = btcAmount * price;
+    const costOfBtcSold = btcAmount * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
-    const newBtcBalance = btcBalance - btcAmountTraded;
+    const newBtcBalance = btcBalance - btcAmount;
 
     result.usdBalance += proceedsFromSale;
     result.btcBalance = newBtcBalance;
     result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
-    result.btcAmountTraded = btcAmountTraded;
-
-    if (tradePL > 0) {
-      result.dailyGain += tradePL;
-    } else {
-      result.dailyLoss += Math.abs(tradePL);
-    }
+    result.btcAmountTraded = btcAmount;
   }
   return result;
 }
@@ -180,8 +174,8 @@ export default function TradingDashboard() {
   const [usdBalance, setUsdBalance] = useState<number>(10000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
-  const [dailyGain, setDailyGain] = useState(0);
-  const [dailyLoss, setDailyLoss] = useState(0);
+  const [todaysPL, setTodaysPL] = useState(0);
+  const [initialPortfolioValue, setInitialPortfolioValue] = useState(0);
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
@@ -209,26 +203,17 @@ export default function TradingDashboard() {
 
         if (snapshot.exists()) {
           const userData = snapshot.val();
-          const today = new Date().toISOString().split("T")[0];
+          const loadedUsd = userData.usdBalance ?? 10000;
+          const loadedBtc = userData.btcBalance ?? 0;
+          const loadedAvgCost = userData.avgBtcCost ?? 0;
 
-          setUsdBalance(userData.usdBalance ?? 10000);
-          setBtcBalance(userData.btcBalance ?? 0);
-          setAvgBtcCost(userData.avgBtcCost ?? 0);
+          setUsdBalance(loadedUsd);
+          setBtcBalance(loadedBtc);
+          setAvgBtcCost(loadedAvgCost);
 
-          if (userData.lastLoginDate === today) {
-            setDailyGain(userData.dailyGain ?? 0);
-            setDailyLoss(userData.dailyLoss ?? 0);
-          } else {
-            const userRef = ref(db, `users/${name}`);
-            await set(userRef, {
-              ...userData,
-              dailyGain: 0,
-              dailyLoss: 0,
-              lastLoginDate: today,
-            });
-            setDailyGain(0);
-            setDailyLoss(0);
-          }
+          const initialValue = loadedUsd + loadedBtc * INITIAL_PRICE;
+          setInitialPortfolioValue(initialValue);
+          setTodaysPL(0); 
 
           setUsername(name);
           localStorage.setItem("bitsim_username", name);
@@ -360,14 +345,21 @@ export default function TradingDashboard() {
       }
     });
   }, [currentPrice, chartType, username]);
+  
+  useEffect(() => {
+    if(initialPortfolioValue > 0) {
+      const currentPortfolioValue = usdBalance + btcBalance * currentPrice;
+      setTodaysPL(currentPortfolioValue - initialPortfolioValue);
+    }
+  }, [usdBalance, btcBalance, currentPrice, initialPortfolioValue]);
+
 
   const handleLogout = () => {
     setUsername(null);
     setUsdBalance(0);
     setBtcBalance(0);
     setAvgBtcCost(0);
-    setDailyGain(0);
-    setDailyLoss(0);
+    setTodaysPL(0);
     setPriceHistory([]);
     localStorage.removeItem("bitsim_username");
     setIsModalOpen(true);
@@ -394,8 +386,6 @@ export default function TradingDashboard() {
       usdBalance,
       btcBalance,
       avgBtcCost,
-      dailyGain,
-      dailyLoss,
     };
 
     if (type === "buy" && amountInUsd > usdBalance) {
@@ -424,19 +414,15 @@ export default function TradingDashboard() {
     setUsdBalance(result.usdBalance);
     setBtcBalance(result.btcBalance);
     setAvgBtcCost(result.avgBtcCost);
-    setDailyGain(result.dailyGain);
-    setDailyLoss(result.dailyLoss);
 
     try {
       const userRef = ref(db, `users/${username}`);
-      await set(userRef, {
+      const dataToSave = {
         usdBalance: result.usdBalance,
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
-        dailyGain: result.dailyGain,
-        dailyLoss: result.dailyLoss,
-        lastLoginDate: new Date().toISOString().split("T")[0],
-      });
+      };
+      await set(userRef, dataToSave);
 
       if (type === "buy") {
         toast({
@@ -459,52 +445,14 @@ export default function TradingDashboard() {
       setUsdBalance(currentUserData.usdBalance);
       setBtcBalance(currentUserData.btcBalance);
       setAvgBtcCost(currentUserData.avgBtcCost);
-      setDailyGain(currentUserData.dailyGain);
-      setDailyLoss(currentUserData.dailyLoss);
     } finally {
       setIsTrading(false);
       form.reset({ amount: 100 });
     }
   };
 
-  const handleWithdraw = async () => {
-    if (!username) return;
-
-    const todaysPL = dailyGain - dailyLoss;
-    const newUsdBalance = usdBalance + todaysPL;
-    
-    setUsdBalance(newUsdBalance);
-    setDailyGain(0);
-    setDailyLoss(0);
-
-    try {
-      const userRef = ref(db, `users/${username}`);
-      const snapshot = await get(userRef);
-      if (snapshot.exists()) {
-        const userData = snapshot.val();
-        await set(userRef, {
-          ...userData,
-          usdBalance: newUsdBalance,
-          dailyGain: 0,
-          dailyLoss: 0,
-          lastLoginDate: new Date().toISOString().split("T")[0],
-        });
-      }
-      toast({
-        title: "Withdrawal Successful",
-        description: `$${todaysPL.toFixed(2)} has been added to your USD balance.`,
-      });
-    } catch(err) {
-      console.error("Firebase error during withdrawal: ", err);
-      toast({ variant: 'destructive', description: "Error saving withdrawal. Reverting changes." });
-      setUsdBalance(usdBalance);
-      setDailyGain(dailyGain);
-      setDailyLoss(dailyLoss);
-    }
-  };
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
-  const todaysPL = dailyGain - dailyLoss;
 
   if (isLoading) {
     return (
@@ -601,6 +549,16 @@ export default function TradingDashboard() {
                       </div>
                       <span>{btcBalance.toFixed(8)}</span>
                     </div>
+                     <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Avg. BTC Cost</span>
+                      <span>
+                        $
+                        {avgBtcCost.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between pt-2 border-t mt-2">
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">
@@ -618,10 +576,6 @@ export default function TradingDashboard() {
                           })}
                         </span>
                       </div>
-                      <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={todaysPL === 0}>
-                        <Wallet className="mr-2 h-4 w-4" />
-                        Withdraw
-                      </Button>
                     </div>
                   </>
                 ) : (
