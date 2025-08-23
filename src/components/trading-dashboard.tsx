@@ -337,8 +337,9 @@ export default function TradingDashboard() {
         return;
     }
     
-    if (type === "sell" && (amountInUsd / currentPrice) > btcBalance) {
-        toast({ variant: "destructive", description: `Insufficient BTC balance.` });
+    const btcValue = btcBalance * currentPrice;
+    if (type === "sell" && amountInUsd > btcValue) {
+        toast({ variant: "destructive", description: `Insufficient BTC balance. You can sell up to $${btcValue.toFixed(2)}.` });
         setIsTrading(false);
         return;
     }
@@ -540,3 +541,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
