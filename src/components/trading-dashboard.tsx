@@ -21,6 +21,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -271,62 +272,67 @@ export default function TradingDashboard() {
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
     if (isTrading || !username) return;
-
+  
     setIsTrading(true);
-
     const { amount: amountInUsd } = values;
-    
+  
     if (type === "buy") {
       if (amountInUsd > usdBalance) {
         toast({ variant: "destructive", description: "Insufficient USD balance." });
         setIsTrading(false);
         return;
       }
-      
+  
       await new Promise(resolve => setTimeout(resolve, 500));
-
+  
       const btcAmountForTrade = amountInUsd / currentPrice;
       const totalCostOfExistingBtc = btcBalance * avgBtcCost;
       const costOfNewBtc = amountInUsd;
       
       const newTotalBtc = btcBalance + btcAmountForTrade;
       const newTotalCost = totalCostOfExistingBtc + costOfNewBtc;
-      const newAvgCost = newTotalCost / newTotalBtc;
+      const newAvgCost = newTotalBtc > 0 ? newTotalCost / newTotalBtc : 0;
       
       const newUsdBalance = usdBalance - amountInUsd;
-
-      setBtcBalance(newTotalBtc);
-      setUsdBalance(newUsdBalance);
-      setAvgBtcCost(newAvgCost);
-      
-      const userRef = ref(db, `users/${username}`);
-      await set(ref(db, `users/${username}`), {
-        ...(await get(userRef)).val(),
+  
+      const newUserData = {
         usdBalance: newUsdBalance,
         btcBalance: newTotalBtc,
         avgBtcCost: newAvgCost,
+        dailyGain,
+        dailyLoss,
+      };
+      
+      setUsdBalance(newUsdBalance);
+      setBtcBalance(newTotalBtc);
+      setAvgBtcCost(newAvgCost);
+  
+      const userRef = ref(db, `users/${username}`);
+      await set(userRef, {
+        ...(await get(userRef)).val(),
+        ...newUserData,
       });
-
+  
       toast({
         title: `Trade Successful`,
         description: `Bought ${btcAmountForTrade.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
       });
-
+  
     } else { // sell
-      const btcAmountToSell = amountInUsd / avgBtcCost; // How much BTC the user wants to sell, based on its cost
-
+      const btcAmountToSell = amountInUsd / currentPrice; 
+  
       if (btcAmountToSell > btcBalance) {
         toast({ variant: "destructive", description: `Insufficient BTC balance. You can only sell up to what you own.` });
         setIsTrading(false);
         return;
       }
-
+  
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const proceedsFromSale = btcAmountToSell * currentPrice;
       const costOfBtcSold = btcAmountToSell * avgBtcCost;
       const tradePL = proceedsFromSale - costOfBtcSold;
-
+  
       const newUsdBalance = usdBalance + proceedsFromSale;
       const newBtcBalance = btcBalance - btcAmountToSell;
       
@@ -340,7 +346,15 @@ export default function TradingDashboard() {
       }
       
       const newAvgCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
-
+  
+      const newUserData = {
+        usdBalance: newUsdBalance,
+        btcBalance: newBtcBalance,
+        dailyGain: newDailyGain,
+        dailyLoss: newDailyLoss,
+        avgBtcCost: newAvgCost,
+      };
+  
       setUsdBalance(newUsdBalance);
       setBtcBalance(newBtcBalance);
       setDailyGain(newDailyGain);
@@ -350,23 +364,20 @@ export default function TradingDashboard() {
       const userRef = ref(db, `users/${username}`);
       await set(userRef, {
         ...(await get(userRef)).val(),
-        usdBalance: newUsdBalance,
-        btcBalance: newBtcBalance,
-        dailyGain: newDailyGain,
-        dailyLoss: newDailyLoss,
-        avgBtcCost: newAvgCost,
+        ...newUserData,
       });
-
+  
       toast({
         title: `Trade Successful`,
         description: `Sold ${btcAmountToSell.toFixed(8)} BTC. P/L: $${tradePL.toFixed(2)}`,
         variant: tradePL >= 0 ? 'default' : 'destructive'
       });
     }
-
+  
     setIsTrading(false);
-    form.reset();
+    form.reset({ amount: 100 });
   };
+  
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain - dailyLoss;
@@ -520,4 +531,4 @@ export default function TradingDashboard() {
   );
 }
 
-
+    
