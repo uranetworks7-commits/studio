@@ -10,6 +10,8 @@ import {
   Loader2,
   LogOut,
   MessageSquare,
+  Monitor,
+  Smartphone,
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useViewport } from "@/context/viewport-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { get, ref, set } from "firebase/database";
@@ -113,7 +116,7 @@ const stateBehaviors: {
   },
   DUMP: {
     duration: [1, 3],
-    change: () => (Math.random() * -0.05) - 0.01,
+    change: () => Math.random() * -0.05 - 0.01,
     next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
     updateInterval: [400, 700],
   },
@@ -133,13 +136,14 @@ function calculateTrade(
   price: number,
   currentUserData: UserData
 ) {
-  const { usdBalance, btcBalance, avgBtcCost, dailyGain, dailyLoss } = currentUserData;
+  const { usdBalance, btcBalance, avgBtcCost, dailyGain, dailyLoss } =
+    currentUserData;
   let result = {
     ...currentUserData,
     tradePL: 0,
     btcAmountTraded: 0,
   };
-  
+
   if (tradeType === "buy") {
     const btcAmount = amountInUsd / price;
     const costOfNewBtc = amountInUsd;
@@ -151,12 +155,14 @@ function calculateTrade(
     result.btcBalance = newTotalBtc;
     result.avgBtcCost = newTotalBtc > 0 ? newTotalCost / newTotalBtc : 0;
     result.btcAmountTraded = btcAmount;
-  } else { // sell
+  } else {
+    // sell
     const btcToSell = amountInUsd / price;
-    const proceedsFromSale = amountInUsd;
+    const proceedsFromSale = btcToSell * price; // Correctly calculate proceeds
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
-    
+
+    result.usdBalance += proceedsFromSale; // Add full proceeds to balance
     result.btcBalance -= btcToSell;
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
@@ -191,6 +197,7 @@ export default function TradingDashboard() {
   const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
 
   const { toast } = useToast();
+  const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
 
   const marketStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -385,7 +392,10 @@ export default function TradingDashboard() {
     };
 
     if (type === "buy" && amountInUsd > usdBalance) {
-      toast({ variant: "destructive", description: "Insufficient USD balance." });
+      toast({
+        variant: "destructive",
+        description: "Insufficient USD balance.",
+      });
       setIsTrading(false);
       return;
     }
@@ -394,7 +404,9 @@ export default function TradingDashboard() {
     if (type === "sell" && btcAmountEquivalent > btcBalance) {
       toast({
         variant: "destructive",
-        description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
+        description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
+          8
+        )} BTC.`,
       });
       setIsTrading(false);
       return;
@@ -406,8 +418,12 @@ export default function TradingDashboard() {
       currentPrice,
       currentUserData
     );
-    
-    setUsdBalance(result.usdBalance);
+
+    const tempUsdBalance =
+      type === "buy"
+        ? currentUserData.usdBalance - amountInUsd
+        : currentUserData.usdBalance + amountInUsd;
+    setUsdBalance(tempUsdBalance);
     setBtcBalance(result.btcBalance);
     setAvgBtcCost(result.avgBtcCost);
     setDailyGain(result.dailyGain);
@@ -416,7 +432,7 @@ export default function TradingDashboard() {
     try {
       const userRef = ref(db, `users/${username}`);
       const dataToSave = {
-        usdBalance: result.usdBalance,
+        usdBalance: tempUsdBalance, // Save the temporary balance
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
         dailyGain: result.dailyGain,
@@ -427,12 +443,18 @@ export default function TradingDashboard() {
       if (type === "buy") {
         toast({
           title: `Trade Successful`,
-          description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+          description: `Bought ${result.btcAmountTraded.toFixed(
+            8
+          )} BTC for $${amountInUsd.toFixed(2)}.`,
         });
       } else {
         toast({
           title: `Trade Successful`,
-          description: `Sold ${result.btcAmountTraded.toFixed(8)} BTC. P/L: $${result.tradePL.toFixed(2)}`,
+          description: `Sold ${result.btcAmountTraded.toFixed(
+            8
+          )} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(
+            2
+          )}`,
           variant: result.tradePL >= 0 ? "default" : "destructive",
         });
       }
@@ -467,11 +489,11 @@ export default function TradingDashboard() {
       setIsWithdrawing(false);
       return;
     }
-    
+
     const newUsdBalance = usdBalance + todaysPL;
     const newDailyGain = 0;
     const newDailyLoss = 0;
-    
+
     setUsdBalance(newUsdBalance);
     setDailyGain(newDailyGain);
     setDailyLoss(newDailyLoss);
@@ -489,7 +511,9 @@ export default function TradingDashboard() {
         });
         toast({
           title: "Withdrawal Successful",
-          description: `$${todaysPL.toFixed(2)} has been transferred to your USD balance.`,
+          description: `$${todaysPL.toFixed(
+            2
+          )} has been transferred to your USD balance.`,
         });
       }
     } catch (err) {
@@ -519,7 +543,9 @@ export default function TradingDashboard() {
   }
 
   if (isModalOpen || !username) {
-    return <UserModal open={isModalOpen || !username} onSave={handleUserLogin} />;
+    return (
+      <UserModal open={isModalOpen || !username} onSave={handleUserLogin} />
+    );
   }
 
   return (
@@ -645,9 +671,24 @@ export default function TradingDashboard() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="font-headline">New Trade</CardTitle>
-                <CardDescription>Buy or sell Bitcoin.</CardDescription>
+              <CardHeader className="flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="font-headline">New Trade</CardTitle>
+                  <CardDescription>Buy or sell Bitcoin.</CardDescription>
+                </div>
+                {isMobile && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsDesktopView(!isDesktopView)}
+                  >
+                    {isDesktopView ? (
+                      <Smartphone />
+                    ) : (
+                      <Monitor />
+                    )}
+                  </Button>
+                )}
               </CardHeader>
               <Form {...form}>
                 <form onSubmit={(e) => e.preventDefault()}>
