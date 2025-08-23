@@ -53,7 +53,8 @@ import { UserModal } from "./user-modal";
 const formSchema = z.object({
   amount: z.coerce
     .number({ invalid_type_error: "Please enter a valid number." })
-    .positive({ message: "Amount must be positive." }),
+    .positive({ message: "Amount must be positive." })
+    .optional(),
 });
 
 type TradeFormValues = z.infer<typeof formSchema>;
@@ -319,7 +320,7 @@ export default function TradingDashboard() {
     setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
 
     if (chartType === 'candlestick') {
-        setPriceHistory(prevCandles => {
+        setPriceHistory(() => {
             const tempHistory = [...rawPriceHistory];
             const candles = [];
             let i = 0;
@@ -345,7 +346,7 @@ export default function TradingDashboard() {
     } else {
         setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
     }
-  }, [currentPrice, chartType, username]);
+  }, [currentPrice, chartType, username, rawPriceHistory]);
 
   const handleLogout = () => {
     setUsername(null);
@@ -372,7 +373,7 @@ export default function TradingDashboard() {
   };
 
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    if (isTrading || !username) return;
+    if (isTrading || !username || !values.amount) return;
 
     setIsTrading(true);
 
@@ -456,7 +457,7 @@ export default function TradingDashboard() {
       });
     } finally {
       setIsTrading(false);
-      form.reset({ amount: 100 });
+      form.reset({ amount: undefined });
     }
   };
 
@@ -688,6 +689,7 @@ export default function TradingDashboard() {
                               type="number"
                               step="0.01"
                               disabled={isTrading}
+                              value={field.value ?? ''}
                             />
                           </FormControl>
                           <FormMessage />
