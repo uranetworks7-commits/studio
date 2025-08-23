@@ -158,11 +158,11 @@ function calculateTrade(
   } else {
     // sell
     const btcToSell = amountInUsd / price;
-    const proceedsFromSale = btcToSell * price; // Correctly calculate proceeds
+    const proceedsFromSale = btcToSell * price;
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
 
-    result.usdBalance += proceedsFromSale; // Add full proceeds to balance
+    result.usdBalance += proceedsFromSale;
     result.btcBalance -= btcToSell;
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
@@ -192,6 +192,7 @@ export default function TradingDashboard() {
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
+  const [rawPriceHistory, setRawPriceHistory] = useState<PriceData[]>([]);
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
 
   const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
@@ -304,55 +305,45 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     if (!username) return;
-    setPriceHistory((prevHistory) => {
-      const newTime = new Date();
-      const newEntry: PriceData = {
-        time: newTime.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-        price: currentPrice,
-      };
 
-      const historyWithNewEntry = [...prevHistory, newEntry];
+    const newTime = new Date();
+    const newEntry: PriceData = {
+      time: newTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+      price: currentPrice,
+    };
 
-      if (chartType === "candlestick") {
+    setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
+
+    if (chartType === 'candlestick') {
         const candles = [];
-        let currentOhlcPoints = [];
+        let tempHistory = [...rawPriceHistory, newEntry];
+        let i = 0;
+        while (i < tempHistory.length) {
+            const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
+            if (chunk.length === CANDLESTICK_INTERVAL) {
+                const open = chunk[0].price;
+                const close = chunk[chunk.length - 1].price;
+                const high = Math.max(...chunk.map((p) => p.price));
+                const low = Math.min(...chunk.map((p) => p.price));
+                const candleTime = chunk[0].time;
 
-        for (let i = 0; i < historyWithNewEntry.length; i++) {
-          currentOhlcPoints.push(historyWithNewEntry[i]);
-          if (currentOhlcPoints.length === CANDLESTICK_INTERVAL) {
-            const open = currentOhlcPoints[0].price;
-            const close = currentOhlcPoints[currentOhlcPoints.length - 1].price;
-            const high = Math.max(...currentOhlcPoints.map((p) => p.price));
-            const low = Math.min(...currentOhlcPoints.map((p) => p.price));
-            const candleTime = currentOhlcPoints[0].time;
-
-            candles.push({
-              time: candleTime.substring(0, 5),
-              price: close,
-              ohlc: [open, high, low, close] as [
-                number,
-                number,
-                number,
-                number
-              ],
-            });
-            currentOhlcPoints = [];
-          }
+                candles.push({
+                    time: candleTime.substring(0, 5),
+                    price: close,
+                    ohlc: [open, high, low, close] as [number, number, number, number],
+                });
+            }
+            i += CANDLESTICK_INTERVAL;
         }
-        return candles.slice(-PRICE_HISTORY_LENGTH);
-      } else {
-        const areaHistory = historyWithNewEntry.map(({ price, time }) => ({
-          price,
-          time,
-        }));
-        return areaHistory.slice(-PRICE_HISTORY_LENGTH);
-      }
-    });
-  }, [currentPrice, chartType, username]);
+        setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
+    } else {
+        setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
+    }
+  }, [currentPrice, chartType, username, rawPriceHistory]);
 
   const handleLogout = () => {
     setUsername(null);
@@ -362,6 +353,7 @@ export default function TradingDashboard() {
     setDailyGain(0);
     setDailyLoss(0);
     setPriceHistory([]);
+    setRawPriceHistory([]);
     localStorage.removeItem("bitsim_username");
     setIsModalOpen(true);
     toast({
@@ -418,14 +410,11 @@ export default function TradingDashboard() {
       currentPrice,
       currentUserData
     );
-    
-    const tempUsdBalance = type === "buy" ? result.usdBalance : currentUserData.usdBalance;
-
 
     try {
       const userRef = ref(db, `users/${username}`);
       await set(userRef, {
-        usdBalance: tempUsdBalance,
+        usdBalance: result.usdBalance,
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
         dailyGain: result.dailyGain,
@@ -433,7 +422,7 @@ export default function TradingDashboard() {
       });
 
       // State updates after successful save
-      setUsdBalance(tempUsdBalance);
+      setUsdBalance(result.usdBalance);
       setBtcBalance(result.btcBalance);
       setAvgBtcCost(result.avgBtcCost);
       setDailyGain(result.dailyGain);
