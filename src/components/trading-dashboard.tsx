@@ -185,7 +185,7 @@ export default function TradingDashboard() {
   const [isTrading, setIsTrading] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const [usdBalance, setUsdBalance] = useState<number>(1000);
+  const [usdBalance, setUsdBalance] = useState<number>(10000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
@@ -316,12 +316,12 @@ export default function TradingDashboard() {
       }),
       price: currentPrice,
     };
-
+    
     setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
 
     if (chartType === 'candlestick') {
-        setPriceHistory(() => {
-            const tempHistory = [...rawPriceHistory];
+        setPriceHistory((prevHistory) => {
+            const tempHistory = [...rawPriceHistory, newEntry];
             const candles = [];
             let i = 0;
             while (i < tempHistory.length) {
@@ -346,7 +346,7 @@ export default function TradingDashboard() {
     } else {
         setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
     }
-  }, [currentPrice, chartType, username, rawPriceHistory]);
+  }, [currentPrice, chartType, username]);
 
   const handleLogout = () => {
     setUsername(null);
