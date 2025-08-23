@@ -273,14 +273,13 @@ export default function TradingDashboard() {
 
     setIsTrading(true);
     const { amount: amountInUsd } = values;
+    const amountInBtc = amountInUsd / currentPrice;
 
     if (type === "buy" && amountInUsd > usdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
       setIsTrading(false);
       return;
     }
-
-    const amountInBtc = amountInUsd / currentPrice;
 
     if (type === "sell" && amountInBtc > btcBalance) {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
@@ -470,11 +469,11 @@ export default function TradingDashboard() {
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
                     <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))} disabled={isTrading}>
-                      {isTrading ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+                      {isTrading ? <Loader2 className="animate-spin mr-2" /> : <ArrowUp />}
                       {isTrading ? 'Buying...' : 'Buy'}
                     </Button>
                     <Button onClick={form.handleSubmit(v => handleTrade(v, 'sell'))} variant="destructive" disabled={isTrading}>
-                      {isTrading ? <Loader2 className="animate-spin" /> : <ArrowDown />}
+                      {isTrading ? <Loader2 className="animate-spin mr-2" /> : <ArrowDown />}
                       {isTrading ? 'Selling...' : 'Sell'}
                     </Button>
                   </CardFooter>
