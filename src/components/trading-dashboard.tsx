@@ -207,7 +207,7 @@ export default function TradingDashboard() {
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: undefined,
+      amount: 100,
     },
   });
 
@@ -316,33 +316,31 @@ export default function TradingDashboard() {
       }),
       price: currentPrice,
     };
-    
+
     setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
 
     if (chartType === 'candlestick') {
-        setPriceHistory((prevHistory) => {
-            const tempHistory = [...rawPriceHistory, newEntry];
-            const candles = [];
-            let i = 0;
-            while (i < tempHistory.length) {
-                const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
-                if (chunk.length > 0) {
-                    const open = chunk[0].price;
-                    const close = chunk[chunk.length - 1].price;
-                    const high = Math.max(...chunk.map((p) => p.price));
-                    const low = Math.min(...chunk.map((p) => p.price));
-                    const candleTime = chunk[0].time;
+        const tempHistory = [...rawPriceHistory, newEntry];
+        const candles = [];
+        let i = 0;
+        while (i < tempHistory.length) {
+            const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
+            if (chunk.length > 0) {
+                const open = chunk[0].price;
+                const close = chunk[chunk.length - 1].price;
+                const high = Math.max(...chunk.map((p) => p.price));
+                const low = Math.min(...chunk.map((p) => p.price));
+                const candleTime = chunk[0].time;
 
-                    candles.push({
-                        time: candleTime.substring(0, 5),
-                        price: close,
-                        ohlc: [open, high, low, close] as [number, number, number, number],
-                    });
-                }
-                i += CANDLESTICK_INTERVAL;
+                candles.push({
+                    time: candleTime.substring(0, 5),
+                    price: close,
+                    ohlc: [open, high, low, close] as [number, number, number, number],
+                });
             }
-            return candles.slice(-PRICE_HISTORY_LENGTH);
-        });
+            i += CANDLESTICK_INTERVAL;
+        }
+        setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
     } else {
         setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
     }
@@ -457,7 +455,7 @@ export default function TradingDashboard() {
       });
     } finally {
       setIsTrading(false);
-      form.reset({ amount: undefined });
+      form.reset({ amount: 100 });
     }
   };
 
