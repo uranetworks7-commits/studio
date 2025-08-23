@@ -319,31 +319,33 @@ export default function TradingDashboard() {
     setRawPriceHistory((prev) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL));
 
     if (chartType === 'candlestick') {
-        const candles = [];
-        let tempHistory = [...rawPriceHistory, newEntry];
-        let i = 0;
-        while (i < tempHistory.length) {
-            const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
-            if (chunk.length === CANDLESTICK_INTERVAL) {
-                const open = chunk[0].price;
-                const close = chunk[chunk.length - 1].price;
-                const high = Math.max(...chunk.map((p) => p.price));
-                const low = Math.min(...chunk.map((p) => p.price));
-                const candleTime = chunk[0].time;
+        setPriceHistory(prevCandles => {
+            const tempHistory = [...rawPriceHistory];
+            const candles = [];
+            let i = 0;
+            while (i < tempHistory.length) {
+                const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
+                if (chunk.length > 0) {
+                    const open = chunk[0].price;
+                    const close = chunk[chunk.length - 1].price;
+                    const high = Math.max(...chunk.map((p) => p.price));
+                    const low = Math.min(...chunk.map((p) => p.price));
+                    const candleTime = chunk[0].time;
 
-                candles.push({
-                    time: candleTime.substring(0, 5),
-                    price: close,
-                    ohlc: [open, high, low, close] as [number, number, number, number],
-                });
+                    candles.push({
+                        time: candleTime.substring(0, 5),
+                        price: close,
+                        ohlc: [open, high, low, close] as [number, number, number, number],
+                    });
+                }
+                i += CANDLESTICK_INTERVAL;
             }
-            i += CANDLESTICK_INTERVAL;
-        }
-        setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
+            return candles.slice(-PRICE_HISTORY_LENGTH);
+        });
     } else {
         setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
     }
-  }, [currentPrice, chartType, username, rawPriceHistory]);
+  }, [currentPrice, chartType, username]);
 
   const handleLogout = () => {
     setUsername(null);
