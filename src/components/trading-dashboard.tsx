@@ -108,7 +108,7 @@ function calculateTrade(
 
     } else { // sell
         const btcAmountToSell = amountInUsd / price; 
-        const proceedsFromSale = btcAmountToSell * price; // This is essentially amountInUsd
+        const proceedsFromSale = amountInUsd;
         const costOfBtcSold = btcAmountToSell * avgBtcCost;
         const tradePL = proceedsFromSale - costOfBtcSold;
         
@@ -542,4 +542,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
