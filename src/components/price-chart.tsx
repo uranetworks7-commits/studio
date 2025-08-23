@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
@@ -70,6 +71,8 @@ export function PriceChart({ data, currentPrice, chartType }: PriceChartProps) {
         if (!payload.ohlc) return null;
         
         const [open, high, low, close] = payload.ohlc;
+        if (high === low) return null; // Avoid division by zero
+
         const isPositive = close >= open;
         const color = isPositive ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-2))';
         const bodyHeight = Math.abs(y - (y + height * ((open - close) / (high-low)) )) || 1;
