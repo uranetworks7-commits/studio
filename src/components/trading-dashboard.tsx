@@ -418,27 +418,26 @@ export default function TradingDashboard() {
       currentPrice,
       currentUserData
     );
+    
+    const tempUsdBalance = type === "buy" ? result.usdBalance : currentUserData.usdBalance;
 
-    const tempUsdBalance =
-      type === "buy"
-        ? currentUserData.usdBalance - amountInUsd
-        : currentUserData.usdBalance + amountInUsd;
-    setUsdBalance(tempUsdBalance);
-    setBtcBalance(result.btcBalance);
-    setAvgBtcCost(result.avgBtcCost);
-    setDailyGain(result.dailyGain);
-    setDailyLoss(result.dailyLoss);
 
     try {
       const userRef = ref(db, `users/${username}`);
-      const dataToSave = {
-        usdBalance: tempUsdBalance, // Save the temporary balance
+      await set(userRef, {
+        usdBalance: tempUsdBalance,
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
         dailyGain: result.dailyGain,
         dailyLoss: result.dailyLoss,
-      };
-      await set(userRef, dataToSave);
+      });
+
+      // State updates after successful save
+      setUsdBalance(tempUsdBalance);
+      setBtcBalance(result.btcBalance);
+      setAvgBtcCost(result.avgBtcCost);
+      setDailyGain(result.dailyGain);
+      setDailyLoss(result.dailyLoss);
 
       if (type === "buy") {
         toast({
@@ -462,14 +461,8 @@ export default function TradingDashboard() {
       console.error("Firebase error during trade: ", err);
       toast({
         variant: "destructive",
-        description: "Error saving trade. Reverting changes.",
+        description: "Error saving trade. Please try again.",
       });
-      // Revert state on error
-      setUsdBalance(currentUserData.usdBalance);
-      setBtcBalance(currentUserData.btcBalance);
-      setAvgBtcCost(currentUserData.avgBtcCost);
-      setDailyGain(currentUserData.dailyGain);
-      setDailyLoss(currentUserData.dailyLoss);
     } finally {
       setIsTrading(false);
       form.reset({ amount: 100 });
@@ -494,10 +487,6 @@ export default function TradingDashboard() {
     const newDailyGain = 0;
     const newDailyLoss = 0;
 
-    setUsdBalance(newUsdBalance);
-    setDailyGain(newDailyGain);
-    setDailyLoss(newDailyLoss);
-
     try {
       const userRef = ref(db, `users/${username}`);
       const snapshot = await get(userRef);
@@ -509,6 +498,12 @@ export default function TradingDashboard() {
           dailyGain: newDailyGain,
           dailyLoss: newDailyLoss,
         });
+
+        // Update state only after successful DB operation
+        setUsdBalance(newUsdBalance);
+        setDailyGain(newDailyGain);
+        setDailyLoss(newDailyLoss);
+
         toast({
           title: "Withdrawal Successful",
           description: `$${todaysPL.toFixed(
@@ -520,12 +515,8 @@ export default function TradingDashboard() {
       console.error("Firebase error during withdrawal: ", err);
       toast({
         variant: "destructive",
-        description: "Error processing withdrawal. Reverting changes.",
+        description: "Error processing withdrawal. Please try again.",
       });
-      // Revert state on error
-      setUsdBalance(usdBalance);
-      setDailyGain(dailyGain);
-      setDailyLoss(dailyLoss);
     } finally {
       setIsWithdrawing(false);
     }
@@ -768,3 +759,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
