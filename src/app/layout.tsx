@@ -5,8 +5,8 @@ import { ViewportProvider } from '@/context/viewport-context';
 import ClientLayout from '@/components/client-layout';
 
 export const metadata: Metadata = {
-  title: 'Bit Sim',
-  description: 'A Bitcoin Trading Simulation',
+  title: 'URA Trade Pro',
+  description: 'A Trading Simulation',
 };
 
 export default function RootLayout({

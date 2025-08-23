@@ -185,7 +185,7 @@ export default function TradingDashboard() {
   const [isTrading, setIsTrading] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const [usdBalance, setUsdBalance] = useState<number>(10000);
+  const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
@@ -207,7 +207,7 @@ export default function TradingDashboard() {
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: 100,
+      amount: undefined,
     },
   });
 
@@ -536,7 +536,7 @@ export default function TradingDashboard() {
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-headline font-bold text-primary">
-            BitSim RealTrade
+            URA Trade Pro
           </h1>
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
@@ -752,5 +752,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
