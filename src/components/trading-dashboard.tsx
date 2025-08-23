@@ -139,9 +139,9 @@ function calculateTrade(
     tradePL: 0,
     btcAmountTraded: 0,
   };
-  const btcAmount = amountInUsd / price;
-
+  
   if (tradeType === "buy") {
+    const btcAmount = amountInUsd / price;
     const costOfNewBtc = amountInUsd;
     const totalCostOfExistingBtc = btcBalance * avgBtcCost;
     const newTotalBtc = btcBalance + btcAmount;
@@ -152,18 +152,17 @@ function calculateTrade(
     result.avgBtcCost = newTotalBtc > 0 ? newTotalCost / newTotalBtc : 0;
     result.btcAmountTraded = btcAmount;
   } else { // sell
-    const btcToSell = btcAmount;
-    const proceedsFromSale = btcToSell * price;
+    const btcToSell = amountInUsd / price;
+    const proceedsFromSale = amountInUsd;
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
     const newBtcBalance = btcBalance - btcToSell;
 
-    // The user's main balance only changes when they "withdraw" P/L
-    // So here we only add the cost basis back to the USD balance.
-    // The profit/loss portion is tracked in dailyGain/dailyLoss.
-    result.usdBalance += costOfBtcSold; 
+    // We do not modify the main USD balance here. 
+    // The cost basis of the sold asset is conceptually returned to the user's trading capital
+    // and the profit/loss portion is tracked separately until "withdrawn".
     result.btcBalance = newBtcBalance;
-    result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost;
+    result.avgBtcCost = newBtcBalance < 0.00000001 ? 0 : avgBtcCost; // Reset if they sell all BTC
     result.tradePL = tradePL;
     result.btcAmountTraded = btcToSell;
 
@@ -395,8 +394,8 @@ export default function TradingDashboard() {
       return;
     }
 
-    const btcAmountToSell = amountInUsd / currentPrice;
-    if (type === "sell" && btcAmountToSell > btcBalance) {
+    const btcAmountEquivalent = amountInUsd / currentPrice;
+    if (type === "sell" && btcAmountEquivalent > btcBalance) {
       toast({
         variant: "destructive",
         description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
@@ -607,16 +606,6 @@ export default function TradingDashboard() {
                       </div>
                       <span>{btcBalance.toFixed(8)}</span>
                     </div>
-                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Avg. BTC Cost</span>
-                       <span>
-                        $
-                        {avgBtcCost.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
                     <div className="flex items-center justify-between pt-2 border-t mt-2">
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">
@@ -739,5 +728,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
