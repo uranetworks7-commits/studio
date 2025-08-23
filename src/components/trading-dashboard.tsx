@@ -56,7 +56,7 @@ const formSchema = z.object({
 type TradeFormValues = z.infer<typeof formSchema>;
 
 const INITIAL_PRICE = 65000;
-const PRICE_HISTORY_LENGTH = 400; // Display more data points for a better overview
+const PRICE_HISTORY_LENGTH = 400; 
 const CANDLESTICK_INTERVAL = 5;
 
 interface PriceData { 
@@ -67,7 +67,6 @@ interface PriceData {
 
 type MarketState = "BULL_RUN" | "BEAR_MARKET" | "CONSOLIDATION" | "VOLATILITY_SPIKE" | "PUMP" | "DUMP" ;
 
-// More complex market state transition logic
 const stateBehaviors: { [key in MarketState]: { duration: [number, number], change: () => number, next: MarketState[], updateInterval: [number, number] } } = {
   BULL_RUN: { duration: [20, 40], change: () => Math.random() * 0.003 + 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"], updateInterval: [1200, 1800] },
   BEAR_MARKET: { duration: [20, 40], change: () => (Math.random() * -0.003) - 0.0005, next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"], updateInterval: [1200, 1800] },
@@ -81,11 +80,13 @@ export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isTrading, setIsTrading] = useState(false);
 
   const [usdBalance, setUsdBalance] = useState<number>(0);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
+  const [initialPortfolioValue, setInitialPortfolioValue] = useState(0);
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
@@ -107,35 +108,31 @@ export default function TradingDashboard() {
   });
 
   const handleUserLogin = useCallback(async (name: string): Promise<'success' | 'not_found' | 'error'> => {
-    setIsLoading(true);
     try {
         const userRef = ref(db, `users/${name}`);
         const snapshot = await get(userRef);
-        const today = new Date().toISOString().split("T")[0];
-
+        
         if (snapshot.exists()) {
             const userData = snapshot.val();
-            let initialUsdBalance = userData.usdBalance;
-            if (initialUsdBalance === undefined || initialUsdBalance === null) {
-                initialUsdBalance = 1000;
-                await set(ref(db, `users/${name}/usdBalance`), 1000);
-            }
-            
-            setUsdBalance(initialUsdBalance);
-            setBtcBalance(userData.btcBalance ?? 0);
+            const today = new Date().toISOString().split("T")[0];
 
-            if (userData.lastTradeDate === today) {
+            let initialUsd = userData.usdBalance ?? 1000;
+            let initialBtc = userData.btcBalance ?? 0;
+
+            setUsdBalance(initialUsd);
+            setBtcBalance(initialBtc);
+            setInitialPortfolioValue(initialUsd + initialBtc * currentPrice);
+
+            if (userData.lastLoginDate === today) {
                 setDailyGain(userData.dailyGain ?? 0);
                 setDailyLoss(userData.dailyLoss ?? 0);
             } else {
-                await set(ref(db, `users/${name}`), {
-                    ...userData,
-                    dailyGain: 0,
-                    dailyLoss: 0,
-                    lastTradeDate: today,
-                });
+                await set(ref(db, `users/${name}/lastLoginDate`), today);
+                await set(ref(db, `users/${name}/dailyGain`), 0);
+                await set(ref(db, `users/${name}/dailyLoss`), 0);
                 setDailyGain(0);
                 setDailyLoss(0);
+                setInitialPortfolioValue(initialUsd + initialBtc * currentPrice);
             }
             
             setUsername(name);
@@ -149,16 +146,13 @@ export default function TradingDashboard() {
         console.error("Firebase error during login: ", err);
         toast({ variant: 'destructive', description: "Error connecting to the server." });
         return 'error';
-    } finally {
-        setIsLoading(false);
     }
-  }, [toast]);
-  
+  }, [toast, currentPrice]);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("bitsim_username");
     if (storedUsername) {
-        handleUserLogin(storedUsername);
+      handleUserLogin(storedUsername).finally(() => setIsLoading(false));
     } else {
       setIsModalOpen(true);
       setIsLoading(false);
@@ -201,7 +195,7 @@ export default function TradingDashboard() {
       priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
     };
   
-    updatePrice(); // Start the loop
+    updatePrice();
   
     return () => {
       if (priceUpdateTimeoutRef.current) clearTimeout(priceUpdateTimeoutRef.current);
@@ -274,40 +268,15 @@ export default function TradingDashboard() {
       });
   }
 
-  const runSimpleTradeSimulation = (amountInBtc: number) => {
-      let changePercent = 0;
-      switch (marketState) {
-          case "CONSOLIDATION":
-              changePercent = (Math.random() - 0.5) * 0.005; 
-              break;
-          case "BULL_RUN":
-              changePercent = (Math.random() * 0.008); 
-              break;
-          case "BEAR_MARKET":
-              changePercent = (Math.random() * -0.008); 
-              break;
-          case "VOLATILITY_SPIKE":
-          case "PUMP":
-          case "DUMP":
-              changePercent = (Math.random() - 0.5) * 0.03; 
-              break;
-      }
-      
-      const newPrice = currentPrice * (1 + changePercent);
-      const gainLoss = (newPrice - currentPrice) * amountInBtc;
-      return { newPrice, gainLoss };
-  }
-
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
-    if (isNaN(usdBalance) || isNaN(btcBalance) || isNaN(dailyGain) || isNaN(dailyLoss)) {
-        toast({ variant: "destructive", description: "Invalid balance or P/L data. Please try again." });
-        return;
-    }
+    if (isTrading) return;
 
+    setIsTrading(true);
     const { amount: amountInUsd } = values;
 
     if (type === "buy" && amountInUsd > usdBalance) {
       toast({ variant: "destructive", description: "Insufficient USD balance." });
+      setIsTrading(false);
       return;
     }
 
@@ -315,16 +284,16 @@ export default function TradingDashboard() {
 
     if (type === "sell" && amountInBtc > btcBalance) {
       toast({ variant: "destructive", description: "Insufficient BTC balance." });
+      setIsTrading(false);
       return;
     }
     
+    // Apply delay
     if (type === "sell") {
         await new Promise(resolve => setTimeout(resolve, 2000));
     } else {
         await new Promise(resolve => setTimeout(resolve, 500));
     }
-    
-    const result = runSimpleTradeSimulation(amountInBtc);
     
     let newUsd, newBtc;
     if (type === "buy") {
@@ -335,32 +304,42 @@ export default function TradingDashboard() {
       newBtc = btcBalance - amountInBtc;
     }
     
-    const newDailyGain = result.gainLoss > 0 ? dailyGain + result.gainLoss : dailyGain;
-    const newDailyLoss = result.gainLoss < 0 ? dailyLoss + Math.abs(result.gainLoss) : dailyLoss;
-
     setUsdBalance(newUsd);
     setBtcBalance(newBtc);
-    setDailyGain(newDailyGain);
-    setDailyLoss(newDailyLoss);
-    setCurrentPrice(result.newPrice);
 
     if (username) {
-        await set(ref(db, `users/${username}`), {
+      const userRef = ref(db, `users/${username}`);
+      const updates: any = {
           usdBalance: newUsd,
           btcBalance: newBtc,
-          dailyGain: newDailyGain,
-          dailyLoss: newDailyLoss,
-          lastTradeDate: new Date().toISOString().split('T')[0],
-        });
+      };
+      
+      const currentPortfolioValue = newUsd + newBtc * currentPrice;
+      const pl = currentPortfolioValue - initialPortfolioValue;
+      
+      if (pl > 0) {
+        updates.dailyGain = pl;
+        updates.dailyLoss = 0;
+        setDailyGain(pl)
+        setDailyLoss(0)
+      } else {
+        updates.dailyGain = 0;
+        updates.dailyLoss = Math.abs(pl);
+        setDailyGain(0)
+        setDailyLoss(Math.abs(pl));
+      }
+
+      await set(userRef, {
+        ...(await get(userRef)).val(),
+        ...updates
+      });
     }
     
-    const gainLossText = result.gainLoss >= 0 ? `gain of $${result.gainLoss.toFixed(2)}` : `loss of $${Math.abs(result.gainLoss).toFixed(2)}`;
-    
     toast({
-      variant: result.gainLoss >= 0 ? "default" : "destructive",
       title: `Trade Successful`,
-      description: `Your ${type} order resulted in an instant ${gainLossText}.`,
+      description: `Your ${type} order for $${amountInUsd.toFixed(2)} has been executed.`,
     });
+    setIsTrading(false);
   };
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
@@ -468,7 +447,7 @@ export default function TradingDashboard() {
                         <FormItem>
                           <FormLabel>Amount (USD)</FormLabel>
                           <FormControl>
-                            <Input placeholder="100.00" {...field} type="number" step="0.01" />
+                            <Input placeholder="100.00" {...field} type="number" step="0.01" disabled={isTrading} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -490,13 +469,13 @@ export default function TradingDashboard() {
                     </FormItem>
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
-                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))}>
-                      <ArrowUp className="mr-2 h-4 w-4" />
-                      Buy
+                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'buy'))} disabled={isTrading}>
+                      {isTrading ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+                      {isTrading ? 'Buying...' : 'Buy'}
                     </Button>
-                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'sell'))} variant="destructive">
-                      <ArrowDown className="mr-2 h-4 w-4" />
-                      Sell
+                    <Button onClick={form.handleSubmit(v => handleTrade(v, 'sell'))} variant="destructive" disabled={isTrading}>
+                      {isTrading ? <Loader2 className="animate-spin" /> : <ArrowDown />}
+                      {isTrading ? 'Selling...' : 'Sell'}
                     </Button>
                   </CardFooter>
                 </form>
@@ -508,3 +487,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
