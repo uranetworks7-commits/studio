@@ -178,7 +178,7 @@ export default function TradingDashboard() {
   const [isTrading, setIsTrading] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
-  const [usdBalance, setUsdBalance] = useState<number>(10000);
+  const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
@@ -210,7 +210,7 @@ export default function TradingDashboard() {
 
         if (snapshot.exists()) {
           const userData = snapshot.val();
-          setUsdBalance(userData.usdBalance ?? 10000);
+          setUsdBalance(userData.usdBalance ?? 1000);
           setBtcBalance(userData.btcBalance ?? 0);
           setAvgBtcCost(userData.avgBtcCost ?? 0);
           setDailyGain(userData.dailyGain ?? 0);
@@ -727,5 +727,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
