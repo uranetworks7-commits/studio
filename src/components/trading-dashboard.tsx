@@ -379,6 +379,9 @@ export default function TradingDashboard() {
     if (type === 'sell') {
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
+    if (type === 'buy') {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+    }
 
     const { amount: amountInUsd } = values;
     const currentUserData: UserData = {
@@ -574,86 +577,6 @@ export default function TradingDashboard() {
 
           <div className="flex flex-col gap-6">
             <Card>
-              <CardHeader>
-                <CardTitle className="font-headline">Portfolio</CardTitle>
-                <CardDescription>
-                  Your current assets and total value.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {typeof usdBalance === "number" &&
-                typeof btcBalance === "number" ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Total Value</span>
-                      <span className="text-2xl font-bold font-headline">
-                        $
-                        {portfolioValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Landmark className="h-5 w-5 text-primary" />
-                        <span>USD Balance</span>
-                      </div>
-                      <span>
-                        $
-                        {usdBalance.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bitcoin className="h-5 w-5 text-primary" />
-                        <span>BTC Balance</span>
-                      </div>
-                      <span>{btcBalance.toFixed(8)}</span>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t mt-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">
-                          Today's P/L
-                        </span>
-                        <span
-                          className={`font-bold ${
-                            todaysPL >= 0 ? "text-green-500" : "text-red-500"
-                          }`}
-                        >
-                          {todaysPL >= 0 ? "+" : "-"}$
-                          {Math.abs(todaysPL).toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleWithdraw}
-                        disabled={isWithdrawing || Math.abs(todaysPL) < 0.01}
-                      >
-                        {isWithdrawing ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          "Withdraw"
-                        )}
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex justify-center items-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle className="font-headline">New Trade</CardTitle>
@@ -749,11 +672,89 @@ export default function TradingDashboard() {
                 </form>
               </Form>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-headline">Portfolio</CardTitle>
+                <CardDescription>
+                  Your current assets and total value.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {typeof usdBalance === "number" &&
+                typeof btcBalance === "number" ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Total Value</span>
+                      <span className="text-2xl font-bold font-headline">
+                        $
+                        {portfolioValue.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Landmark className="h-5 w-5 text-primary" />
+                        <span>USD Balance</span>
+                      </div>
+                      <span>
+                        $
+                        {usdBalance.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bitcoin className="h-5 w-5 text-primary" />
+                        <span>BTC Balance</span>
+                      </div>
+                      <span>{btcBalance.toFixed(8)}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t mt-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          Today's P/L
+                        </span>
+                        <span
+                          className={`font-bold ${
+                            todaysPL >= 0 ? "text-green-500" : "text-red-500"
+                          }`}
+                        >
+                          {todaysPL >= 0 ? "+" : "-"}$
+                          {Math.abs(todaysPL).toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleWithdraw}
+                        disabled={isWithdrawing || Math.abs(todaysPL) < 0.01}
+                      >
+                        {isWithdrawing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Withdraw"
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-center items-center h-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
     </div>
   );
 }
-
-    
