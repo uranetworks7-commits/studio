@@ -554,9 +554,8 @@ export default function TradingDashboard() {
             <Button variant="outline" size="icon" onClick={handleFeedback}>
                 <ThumbsUp className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
+            <Button variant="outline" size="icon" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         )}
@@ -754,5 +753,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
