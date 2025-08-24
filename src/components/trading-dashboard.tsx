@@ -104,22 +104,22 @@ const stateBehaviors: {
     updateInterval: [1500, 2500],
   },
   VOLATILITY_SPIKE: {
-    duration: [10, 20],
-    change: () => (Math.random() - 0.5) * 0.02,
+    duration: [8, 15],
+    change: () => (Math.random() - 0.5) * 0.025, // Increased volatility
     next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"],
-    updateInterval: [500, 900],
+    updateInterval: [400, 800], // Faster updates
   },
   PUMP: {
     duration: [1, 3],
-    change: () => Math.random() * 0.05 + 0.01,
+    change: () => Math.random() * 0.06 + 0.02, // More intense pump
     next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [400, 700],
+    updateInterval: [300, 600], // Faster updates
   },
   DUMP: {
     duration: [1, 3],
-    change: () => Math.random() * -0.05 - 0.01,
+    change: () => Math.random() * -0.06 - 0.02, // More intense dump
     next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [400, 700],
+    updateInterval: [300, 600], // Faster updates
   },
 };
 
@@ -342,7 +342,8 @@ export default function TradingDashboard() {
       }
       setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
     } else {
-      setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
+        const currentHistory = rawPriceHistoryRef.current.map(d => ({...d, time: d.time.substring(0,5)}));
+        setPriceHistory(currentHistory.slice(-PRICE_HISTORY_LENGTH));
     }
   }, [currentPrice, chartType, username]);
 
@@ -374,6 +375,10 @@ export default function TradingDashboard() {
     if (isTrading || !username || !values.amount) return;
 
     setIsTrading(true);
+
+    if (type === 'sell') {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
     const { amount: amountInUsd } = values;
     const currentUserData: UserData = {
@@ -514,7 +519,7 @@ export default function TradingDashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
     );
@@ -684,7 +689,10 @@ export default function TradingDashboard() {
                               type="number"
                               step="0.01"
                               disabled={isTrading}
-                              value={field.value ?? ''}
+                              onChange={(e) => {
+                                field.onChange(e.target.value === '' ? undefined : Number(e.target.value));
+                              }}
+                              value={field.value ?? ""}
                             />
                           </FormControl>
                           <FormMessage />
