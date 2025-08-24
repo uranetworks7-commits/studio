@@ -406,7 +406,7 @@ export default function TradingDashboard() {
         setIsTrading(false);
         return;
       }
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     const result = calculateTrade(
@@ -754,3 +754,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
