@@ -377,9 +377,6 @@ export default function TradingDashboard() {
     setIsTrading(true);
 
     if (type === 'sell') {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-    if (type === 'buy') {
         await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
