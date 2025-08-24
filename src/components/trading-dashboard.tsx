@@ -376,10 +376,6 @@ export default function TradingDashboard() {
 
     setIsTrading(true);
 
-    if (type === 'sell') {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
     const { amount: amountInUsd } = values;
     const currentUserData: UserData = {
       usdBalance,
@@ -408,6 +404,10 @@ export default function TradingDashboard() {
       });
       setIsTrading(false);
       return;
+    }
+    
+    if (type === 'sell') {
+        await new Promise(resolve => setTimeout(resolve, 1500));
     }
 
     const result = calculateTrade(
