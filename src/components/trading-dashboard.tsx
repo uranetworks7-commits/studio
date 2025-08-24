@@ -9,9 +9,9 @@ import {
   Landmark,
   Loader2,
   LogOut,
-  MessageSquare,
   Monitor,
   Smartphone,
+  ThumbsUp,
   User,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -374,9 +374,25 @@ export default function TradingDashboard() {
   const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
     if (isTrading || !username || !values.amount) return;
 
-    setIsTrading(true);
-
     const { amount: amountInUsd } = values;
+
+    if (type === "sell") {
+      const btcAmountEquivalent = amountInUsd / currentPrice;
+      if (btcAmountEquivalent > btcBalance) {
+        toast({
+          variant: "destructive",
+          description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
+            8
+          )} BTC.`,
+        });
+        return;
+      }
+      setIsTrading(true);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } else {
+      setIsTrading(true);
+    }
+    
     const currentUserData: UserData = {
       usdBalance,
       btcBalance,
@@ -392,21 +408,6 @@ export default function TradingDashboard() {
       });
       setIsTrading(false);
       return;
-    }
-    
-    if (type === "sell") {
-      const btcAmountEquivalent = amountInUsd / currentPrice;
-      if (btcAmountEquivalent > btcBalance) {
-        toast({
-          variant: "destructive",
-          description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
-            8
-          )} BTC.`,
-        });
-        setIsTrading(false);
-        return;
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     const result = calculateTrade(
@@ -461,7 +462,7 @@ export default function TradingDashboard() {
       });
     } finally {
       setIsTrading(false);
-      form.reset({ amount: amountInUsd });
+      form.reset({ amount: values.amount });
     }
   };
 
@@ -550,9 +551,8 @@ export default function TradingDashboard() {
               <User className="h-4 w-4" />
               <span>{username}</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleFeedback}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Feedback
+            <Button variant="outline" size="icon" onClick={handleFeedback}>
+                <ThumbsUp className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
@@ -572,7 +572,7 @@ export default function TradingDashboard() {
           </div>
 
           <div className="flex flex-col gap-6">
-            <Card>
+          <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle className="font-headline">New Trade</CardTitle>
@@ -609,7 +609,7 @@ export default function TradingDashboard() {
                               step="0.01"
                               disabled={isTrading}
                               onChange={(e) => {
-                                field.onChange(e.target.value);
+                                field.onChange(e.target.value === '' ? '' : e.target.value);
                               }}
                               value={field.value ?? ""}
                             />
@@ -755,3 +755,4 @@ export default function TradingDashboard() {
   );
 }
 
+    
