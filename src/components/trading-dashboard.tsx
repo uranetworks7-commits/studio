@@ -193,7 +193,7 @@ export default function TradingDashboard() {
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
-  const [rawPriceHistory, setRawPriceHistory] = useState<PriceData[]>([]);
+  const rawPriceHistoryRef = useRef<PriceData[]>([]);
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
 
   const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
@@ -306,44 +306,43 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     if (!username) return;
-
+  
     const newTime = new Date();
     const newEntry: PriceData = {
       time: newTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
       }),
       price: currentPrice,
     };
-    
-    const updateRawHistory = (prev: PriceData[]) => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
-    setRawPriceHistory(updateRawHistory);
-    
+  
+    rawPriceHistoryRef.current = [...rawPriceHistoryRef.current, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
+  
     if (chartType === 'candlestick') {
-        const tempHistory = [...rawPriceHistory, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
-        const candles = [];
-        let i = 0;
-        while (i < tempHistory.length) {
-            const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
-            if (chunk.length > 0) {
-                const open = chunk[0].price;
-                const close = chunk[chunk.length - 1].price;
-                const high = Math.max(...chunk.map((p) => p.price));
-                const low = Math.min(...chunk.map((p) => p.price));
-                const candleTime = chunk[0].time;
-
-                candles.push({
-                    time: candleTime.substring(0, 5),
-                    price: close,
-                    ohlc: [open, high, low, close] as [number, number, number, number],
-                });
-            }
-            i += CANDLESTICK_INTERVAL;
+      const tempHistory = rawPriceHistoryRef.current;
+      const candles = [];
+      let i = 0;
+      while (i < tempHistory.length) {
+        const chunk = tempHistory.slice(i, i + CANDLESTICK_INTERVAL);
+        if (chunk.length > 0) {
+          const open = chunk[0].price;
+          const close = chunk[chunk.length - 1].price;
+          const high = Math.max(...chunk.map((p) => p.price));
+          const low = Math.min(...chunk.map((p) => p.price));
+          const candleTime = chunk[0].time;
+  
+          candles.push({
+            time: candleTime.substring(0, 5),
+            price: close,
+            ohlc: [open, high, low, close] as [number, number, number, number],
+          });
         }
-        setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
+        i += CANDLESTICK_INTERVAL;
+      }
+      setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
     } else {
-        setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
+      setPriceHistory(prev => [...prev, newEntry].slice(-PRICE_HISTORY_LENGTH));
     }
   }, [currentPrice, chartType, username]);
 
@@ -355,7 +354,7 @@ export default function TradingDashboard() {
     setDailyGain(0);
     setDailyLoss(0);
     setPriceHistory([]);
-    setRawPriceHistory([]);
+    rawPriceHistoryRef.current = [];
     localStorage.removeItem("bitsim_username");
     setIsModalOpen(true);
     toast({
@@ -528,7 +527,7 @@ export default function TradingDashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-headline font-bold text-primary">
@@ -748,3 +747,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
