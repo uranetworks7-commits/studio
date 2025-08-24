@@ -394,22 +394,21 @@ export default function TradingDashboard() {
       return;
     }
 
-    const btcAmountEquivalent = amountInUsd / currentPrice;
-    if (type === "sell" && btcAmountEquivalent > btcBalance) {
-      toast({
-        variant: "destructive",
-        description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
-          8
-        )} BTC.`,
-      });
-      setIsTrading(false);
-      return;
+    if (type === "sell") {
+      const btcAmountEquivalent = amountInUsd / currentPrice;
+      if (btcAmountEquivalent > btcBalance) {
+        toast({
+          variant: "destructive",
+          description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
+            8
+          )} BTC.`,
+        });
+        setIsTrading(false);
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
     
-    if (type === 'sell') {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-    }
-
     const result = calculateTrade(
       type,
       amountInUsd,
