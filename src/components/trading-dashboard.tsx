@@ -393,7 +393,7 @@ export default function TradingDashboard() {
       setIsTrading(false);
       return;
     }
-
+    
     if (type === "sell") {
       const btcAmountEquivalent = amountInUsd / currentPrice;
       if (btcAmountEquivalent > btcBalance) {
@@ -609,7 +609,7 @@ export default function TradingDashboard() {
                               step="0.01"
                               disabled={isTrading}
                               onChange={(e) => {
-                                field.onChange(e.target.value === '' ? undefined : Number(e.target.value));
+                                field.onChange(e.target.value);
                               }}
                               value={field.value ?? ""}
                             />
@@ -755,4 +755,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
