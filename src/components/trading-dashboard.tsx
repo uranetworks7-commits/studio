@@ -46,7 +46,7 @@ import {
 import { useViewport } from "@/context/viewport-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { get, ref, update } from "firebase/database";
+import { get, onValue, ref, set, update, goOffline, goOnline, onDisconnect } from "firebase/database";
 import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
 
@@ -62,6 +62,7 @@ type TradeFormValues = z.infer<typeof formSchema>;
 const INITIAL_PRICE = 65000;
 const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
+const DIFFICULTY_THRESHOLD = 1000000; // $1 Million
 
 interface PriceData {
   time: string;
@@ -77,50 +78,85 @@ type MarketState =
   | "PUMP"
   | "DUMP";
 
-const stateBehaviors: {
-  [key in MarketState]: {
-    duration: [number, number];
-    change: () => number;
-    next: MarketState[];
-    updateInterval: [number, number];
-  };
-} = {
-  BULL_RUN: {
-    duration: [20, 40],
-    change: () => Math.random() * 0.003 + 0.0005,
-    next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"],
-    updateInterval: [1200, 1800],
-  },
-  BEAR_MARKET: {
-    duration: [20, 40],
-    change: () => Math.random() * -0.003 - 0.0005,
-    next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"],
-    updateInterval: [1200, 1800],
-  },
-  CONSOLIDATION: {
-    duration: [15, 30],
-    change: () => (Math.random() - 0.5) * 0.0015,
-    next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"],
-    updateInterval: [1500, 2500],
-  },
-  VOLATILITY_SPIKE: {
-    duration: [8, 15],
-    change: () => (Math.random() - 0.5) * 0.025, // Increased volatility
-    next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"],
-    updateInterval: [400, 800], // Faster updates
-  },
-  PUMP: {
-    duration: [1, 3],
-    change: () => Math.random() * 0.06 + 0.02, // More intense pump
-    next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [300, 600], // Faster updates
-  },
-  DUMP: {
-    duration: [1, 3],
-    change: () => Math.random() * -0.06 - 0.02, // More intense dump
-    next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [300, 600], // Faster updates
-  },
+type Difficulty = 'NORMAL' | 'HARDEST';
+
+const stateBehaviors: Record<Difficulty, Record<MarketState, any>> = {
+    NORMAL: {
+        BULL_RUN: {
+            duration: [20, 40],
+            change: () => Math.random() * 0.003 + 0.0005,
+            next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"],
+            updateInterval: [1200, 1800],
+        },
+        BEAR_MARKET: {
+            duration: [20, 40],
+            change: () => Math.random() * -0.003 - 0.0005,
+            next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"],
+            updateInterval: [1200, 1800],
+        },
+        CONSOLIDATION: {
+            duration: [15, 30],
+            change: () => (Math.random() - 0.5) * 0.0015,
+            next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"],
+            updateInterval: [1500, 2500],
+        },
+        VOLATILITY_SPIKE: {
+            duration: [8, 15],
+            change: () => (Math.random() - 0.5) * 0.025,
+            next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"],
+            updateInterval: [400, 800],
+        },
+        PUMP: {
+            duration: [1, 3],
+            change: () => Math.random() * 0.06 + 0.02,
+            next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
+            updateInterval: [300, 600],
+        },
+        DUMP: {
+            duration: [1, 3],
+            change: () => Math.random() * -0.06 - 0.02,
+            next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
+            updateInterval: [300, 600],
+        },
+    },
+    HARDEST: {
+        BULL_RUN: {
+            duration: [10, 20], // Shorter bull runs
+            change: () => Math.random() * 0.002, // Less intense
+            next: ["BEAR_MARKET", "DUMP", "VOLATILITY_SPIKE"],
+            updateInterval: [1500, 2000],
+        },
+        BEAR_MARKET: {
+            duration: [30, 60], // Longer bear markets
+            change: () => Math.random() * -0.005 - 0.001, // More intense
+            next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"],
+            updateInterval: [1000, 1500],
+        },
+        CONSOLIDATION: {
+            duration: [10, 20],
+            change: () => (Math.random() - 0.5) * 0.002,
+            next: ["BEAR_MARKET", "DUMP", "VOLATILITY_SPIKE"],
+            updateInterval: [1800, 2800],
+        },
+        VOLATILITY_SPIKE: {
+            duration: [10, 20],
+            change: () => (Math.random() - 0.55) * 0.04, // More downward pressure
+            next: ["BEAR_MARKET", "CONSOLIDATION"],
+            updateInterval: [300, 600],
+        },
+        PUMP: {
+            duration: [1, 2], // Very short
+            change: () => Math.random() * 0.03 + 0.01,
+            next: ["DUMP", "BEAR_MARKET"],
+            updateInterval: [400, 700],
+        },
+        DUMP: {
+            duration: [2, 5], // Longer dumps
+            change: () => Math.random() * -0.08 - 0.03, // Much more intense
+            next: ["BEAR_MARKET", "CONSOLIDATION"],
+            updateInterval: [300, 500],
+        },
+    }
 };
 
 interface UserData {
@@ -184,6 +220,7 @@ export default function TradingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [isMasterClient, setIsMasterClient] = useState(false);
 
   const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [btcBalance, setBtcBalance] = useState<number>(0);
@@ -195,8 +232,9 @@ export default function TradingDashboard() {
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
   const rawPriceHistoryRef = useRef<PriceData[]>([]);
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
-
+  
   const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
+  const [difficulty, setDifficulty] = useState<Difficulty>('NORMAL');
 
   const { toast } = useToast();
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
@@ -243,6 +281,112 @@ export default function TradingDashboard() {
     },
     [toast]
   );
+  
+  // Master client election and price updates
+  useEffect(() => {
+    if (!username) return;
+    goOnline(db);
+
+    const masterRef = ref(db, 'market/master');
+    const marketRef = ref(db, 'market');
+
+    onDisconnect(masterRef).remove().then(() => {
+        set(masterRef, username).then(() => {
+            setIsMasterClient(true);
+        }).catch(() => {
+            setIsMasterClient(false);
+        });
+    });
+
+    const listener = onValue(masterRef, (snapshot) => {
+        if (!snapshot.exists()) {
+            set(masterRef, username).then(() => setIsMasterClient(true));
+        } else {
+            setIsMasterClient(snapshot.val() === username);
+        }
+    });
+
+    const marketListener = onValue(marketRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const marketData = snapshot.val();
+            setCurrentPrice(marketData.price || INITIAL_PRICE);
+            setMarketState(marketData.state || 'CONSOLIDATION');
+        } else {
+            // Initialize market if it doesn't exist
+            if(isMasterClient) {
+                set(marketRef, { price: INITIAL_PRICE, state: 'CONSOLIDATION' });
+            }
+        }
+    });
+
+    return () => {
+        listener();
+        marketListener();
+        goOffline(db);
+    }
+  }, [username, isMasterClient]);
+  
+
+  const scheduleNextMarketState = useCallback(() => {
+    if (!isMasterClient) return;
+
+    if (marketStateTimeoutRef.current) {
+      clearTimeout(marketStateTimeoutRef.current);
+    }
+    const behavior = stateBehaviors[difficulty][marketState];
+    const [min, max] = behavior.duration;
+    const duration = (Math.random() * (max - min) + min) * 1000;
+
+    marketStateTimeoutRef.current = setTimeout(() => {
+      const nextStates = behavior.next;
+      const nextState =
+        nextStates[Math.floor(Math.random() * nextStates.length)];
+      
+      const marketRef = ref(db, `market`);
+      update(marketRef, { state: nextState });
+
+    }, duration);
+  }, [isMasterClient, marketState, difficulty]);
+
+
+  useEffect(() => {
+    if (!username || !isMasterClient) return;
+
+    scheduleNextMarketState();
+
+    const updatePrice = () => {
+      const changePercent = stateBehaviors[difficulty][marketState].change();
+      
+      const marketRef = ref(db, 'market');
+      get(marketRef).then((snapshot) => {
+        if(snapshot.exists()){
+            let newPrice = snapshot.val().price * (1 + changePercent);
+            if (newPrice < 1) newPrice = 1;
+            update(marketRef, { price: newPrice });
+        }
+      });
+      
+
+      const [minInterval, maxInterval] =
+        stateBehaviors[difficulty][marketState].updateInterval;
+      const nextUpdateIn =
+        Math.random() * (maxInterval - minInterval) + minInterval;
+
+      if (priceUpdateTimeoutRef.current) {
+        clearTimeout(priceUpdateTimeoutRef.current);
+      }
+      priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
+    };
+    
+    updatePrice();
+
+    return () => {
+      if (priceUpdateTimeoutRef.current)
+        clearTimeout(priceUpdateTimeoutRef.current);
+      if (marketStateTimeoutRef.current)
+        clearTimeout(marketStateTimeoutRef.current);
+    };
+  }, [username, marketState, scheduleNextMarketState, isMasterClient, difficulty]);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("bitsim_username");
@@ -253,56 +397,6 @@ export default function TradingDashboard() {
       setIsLoading(false);
     }
   }, [handleUserLogin]);
-
-  const scheduleNextMarketState = useCallback(() => {
-    if (marketStateTimeoutRef.current) {
-      clearTimeout(marketStateTimeoutRef.current);
-    }
-    const behavior = stateBehaviors[marketState];
-    const [min, max] = behavior.duration;
-    const duration = (Math.random() * (max - min) + min) * 1000;
-
-    marketStateTimeoutRef.current = setTimeout(() => {
-      const nextStates = behavior.next;
-      const nextState =
-        nextStates[Math.floor(Math.random() * nextStates.length)];
-      setMarketState(nextState);
-    }, duration);
-  }, [marketState]);
-
-  useEffect(() => {
-    if (!username || isLoading) return;
-
-    scheduleNextMarketState();
-
-    const updatePrice = () => {
-      setCurrentPrice((prevPrice) => {
-        const changePercent = stateBehaviors[marketState].change();
-        let newPrice = prevPrice * (1 + changePercent);
-        if (newPrice < 1) newPrice = 1;
-        return newPrice;
-      });
-
-      const [minInterval, maxInterval] =
-        stateBehaviors[marketState].updateInterval;
-      const nextUpdateIn =
-        Math.random() * (maxInterval - minInterval) + minInterval;
-
-      if (priceUpdateTimeoutRef.current) {
-        clearTimeout(priceUpdateTimeoutRef.current);
-      }
-      priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
-    };
-
-    updatePrice();
-
-    return () => {
-      if (priceUpdateTimeoutRef.current)
-        clearTimeout(priceUpdateTimeoutRef.current);
-      if (marketStateTimeoutRef.current)
-        clearTimeout(marketStateTimeoutRef.current);
-    };
-  }, [username, marketState, scheduleNextMarketState, isLoading]);
 
   useEffect(() => {
     if (!username) return;
@@ -347,6 +441,17 @@ export default function TradingDashboard() {
     }
   }, [currentPrice, chartType, username]);
 
+  const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const todaysPL = dailyGain + dailyLoss;
+  
+  useEffect(() => {
+    if (portfolioValue > DIFFICULTY_THRESHOLD) {
+      if (difficulty !== 'HARDEST') setDifficulty('HARDEST');
+    } else {
+      if (difficulty !== 'NORMAL') setDifficulty('NORMAL');
+    }
+  }, [portfolioValue, difficulty]);
+
   const handleLogout = () => {
     setUsername(null);
     setUsdBalance(0);
@@ -390,7 +495,14 @@ export default function TradingDashboard() {
       setIsTrading(true);
       await new Promise(resolve => setTimeout(resolve, 750));
     } else {
-      setIsTrading(true);
+        if (amountInUsd > usdBalance) {
+            toast({
+              variant: "destructive",
+              description: "Insufficient USD balance.",
+            });
+            return;
+        }
+        setIsTrading(true);
     }
     
     const currentUserData: UserData = {
@@ -400,15 +512,6 @@ export default function TradingDashboard() {
       dailyGain,
       dailyLoss,
     };
-
-    if (type === "buy" && amountInUsd > usdBalance) {
-      toast({
-        variant: "destructive",
-        description: "Insufficient USD balance.",
-      });
-      setIsTrading(false);
-      return;
-    }
     
     const result = calculateTrade(
       type,
@@ -514,9 +617,6 @@ export default function TradingDashboard() {
     }
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice;
-  const todaysPL = dailyGain + dailyLoss;
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -530,6 +630,9 @@ export default function TradingDashboard() {
       <UserModal open={isModalOpen || !username} onSave={handleUserLogin} />
     );
   }
+  
+  const effectiveMarketState = `${marketState.replace("_", " ")} (${difficulty})`;
+
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -541,7 +644,7 @@ export default function TradingDashboard() {
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
             <span className="font-bold text-foreground">
-              {marketState.replace("_", " ")}
+              {effectiveMarketState}
             </span>
           </div>
         </div>
@@ -753,3 +856,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
