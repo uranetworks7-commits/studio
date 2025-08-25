@@ -359,10 +359,13 @@ export default function TradingDashboard() {
       
       const marketRef = ref(db, 'market');
       get(marketRef).then((snapshot) => {
-        if(snapshot.exists()){
+        if(snapshot.exists() && snapshot.val() && snapshot.val().price) {
             let newPrice = snapshot.val().price * (1 + changePercent);
             if (newPrice < 1) newPrice = 1;
             update(marketRef, { price: newPrice });
+        } else {
+            // If price doesn't exist, initialize it.
+            update(marketRef, { price: INITIAL_PRICE * (1 + changePercent) });
         }
       });
       
@@ -857,4 +860,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
