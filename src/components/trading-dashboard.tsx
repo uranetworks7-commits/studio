@@ -121,40 +121,40 @@ const stateBehaviors: Record<Difficulty, Record<MarketState, any>> = {
     },
     HARDEST: {
         BULL_RUN: {
-            duration: [10, 20], // Shorter bull runs
-            change: () => Math.random() * 0.002, // Less intense
-            next: ["BEAR_MARKET", "DUMP", "VOLATILITY_SPIKE"],
-            updateInterval: [1500, 2000],
+            duration: [5, 10], // Extremely short bull runs
+            change: () => Math.random() * 0.001, // Very weak
+            next: ["BEAR_MARKET", "DUMP"],
+            updateInterval: [2000, 2500],
         },
         BEAR_MARKET: {
-            duration: [30, 60], // Longer bear markets
-            change: () => Math.random() * -0.005 - 0.001, // More intense
-            next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"],
-            updateInterval: [1000, 1500],
+            duration: [40, 80], // Extremely long bear markets
+            change: () => Math.random() * -0.008 - 0.002, // Extremely intense
+            next: ["CONSOLIDATION", "DUMP", "VOLATILITY_SPIKE"],
+            updateInterval: [800, 1200],
         },
         CONSOLIDATION: {
-            duration: [10, 20],
-            change: () => (Math.random() - 0.5) * 0.002,
+            duration: [10, 15],
+            change: () => (Math.random() - 0.6) * 0.0025, // Strong downward drift
             next: ["BEAR_MARKET", "DUMP", "VOLATILITY_SPIKE"],
-            updateInterval: [1800, 2800],
+            updateInterval: [2000, 3000],
         },
         VOLATILITY_SPIKE: {
-            duration: [10, 20],
-            change: () => (Math.random() - 0.55) * 0.04, // More downward pressure
-            next: ["BEAR_MARKET", "CONSOLIDATION"],
-            updateInterval: [300, 600],
+            duration: [15, 25],
+            change: () => (Math.random() - 0.65) * 0.06, // Extreme downward pressure
+            next: ["BEAR_MARKET", "DUMP"],
+            updateInterval: [200, 500],
         },
         PUMP: {
-            duration: [1, 2], // Very short
-            change: () => Math.random() * 0.03 + 0.01,
+            duration: [1, 1], // Almost non-existent
+            change: () => Math.random() * 0.01,
             next: ["DUMP", "BEAR_MARKET"],
-            updateInterval: [400, 700],
+            updateInterval: [500, 800],
         },
         DUMP: {
-            duration: [2, 5], // Longer dumps
-            change: () => Math.random() * -0.08 - 0.03, // Much more intense
+            duration: [5, 10], // Very long dumps
+            change: () => Math.random() * -0.12 - 0.05, // Catastrophic
             next: ["BEAR_MARKET", "CONSOLIDATION"],
-            updateInterval: [300, 500],
+            updateInterval: [200, 400],
         },
     }
 };
@@ -859,4 +859,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
 
