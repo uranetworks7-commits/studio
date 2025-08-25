@@ -285,24 +285,29 @@ export default function TradingDashboard() {
   // Master client election and price updates
   useEffect(() => {
     if (!username) return;
-    goOnline(db);
 
+    goOnline(db);
     const masterRef = ref(db, 'market/master');
     const marketRef = ref(db, 'market');
 
-    onDisconnect(masterRef).remove().then(() => {
-        set(masterRef, username).then(() => {
+    const masterListener = onValue(masterRef, (snapshot) => {
+        const currentMaster = snapshot.val();
+        if (!currentMaster) {
+            // No master, try to become one
+            set(masterRef, username).then(() => {
+                setIsMasterClient(true);
+                // Set onDisconnect only if we successfully became the master
+                onDisconnect(masterRef).remove();
+            }).catch(() => {
+                // Another client became master first
+                setIsMasterClient(false);
+            });
+        } else if (currentMaster === username) {
             setIsMasterClient(true);
-        }).catch(() => {
-            setIsMasterClient(false);
-        });
-    });
-
-    const listener = onValue(masterRef, (snapshot) => {
-        if (!snapshot.exists()) {
-            set(masterRef, username).then(() => setIsMasterClient(true));
+            // Ensure onDisconnect is set if we are the master
+            onDisconnect(masterRef).remove();
         } else {
-            setIsMasterClient(snapshot.val() === username);
+            setIsMasterClient(false);
         }
     });
 
@@ -312,7 +317,7 @@ export default function TradingDashboard() {
             setCurrentPrice(marketData.price || INITIAL_PRICE);
             setMarketState(marketData.state || 'CONSOLIDATION');
         } else {
-            // Initialize market if it doesn't exist
+            // Initialize market if it doesn't exist and we are master
             if(isMasterClient) {
                 set(marketRef, { price: INITIAL_PRICE, state: 'CONSOLIDATION' });
             }
@@ -320,8 +325,15 @@ export default function TradingDashboard() {
     });
 
     return () => {
-        listener();
+        masterListener();
         marketListener();
+        const masterRefOnDisconnect = ref(db, `market/master`);
+        get(masterRefOnDisconnect).then((snapshot) => {
+            if (snapshot.exists() && snapshot.val() === username) {
+                // If this client was the master, remove it on clean disconnect
+                set(masterRefOnDisconnect, null);
+            }
+        });
         goOffline(db);
     }
   }, [username, isMasterClient]);
@@ -859,5 +871,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-
