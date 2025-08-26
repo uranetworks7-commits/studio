@@ -86,22 +86,22 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.01,
-        transitionProb: 0.025,
+        volatility: 0.02,
+        transitionProb: 0.05,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.007,
-        transitionProb: 0.02,
+        volatility: 0.014,
+        transitionProb: 0.04,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.012,
-        transitionProb: 0.025,
+        volatility: 0.024,
+        transitionProb: 0.05,
         nextRegimes: ['MID'],
     },
 };
@@ -268,8 +268,8 @@ export default function TradingDashboard() {
             const target = (min + max) / 2;
             const volatility = currentRegime.volatility;
 
-            // Pull towards the middle of the range
-            const pullFactor = 0.01; // How strongly it pulls
+            // Pull towards the middle of the range (weaken this effect for more swings)
+            const pullFactor = 0.005; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -414,6 +414,10 @@ export default function TradingDashboard() {
 
     if (isExtremeMode) {
       // EXTREME MODE LOGIC
+      if (type === 'sell' || type === 'buy') {
+          // Both buttons now act as 'Place Bet'
+      }
+
       if (amountInUsd > usdBalance) {
         toast({
           variant: "destructive",
@@ -609,7 +613,7 @@ export default function TradingDashboard() {
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-headline font-bold text-primary">
-            URA Trade Pro
+            BitSim RealTrade
           </h1>
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
@@ -744,7 +748,7 @@ export default function TradingDashboard() {
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
                       variant={isExtremeMode ? "default" : "destructive"}
-                      disabled={isTrading || (isExtremeMode && type === 'sell')}
+                      disabled={isTrading}
                     >
                       {isTrading ? (
                         <Loader2 className="animate-spin mr-2" />
