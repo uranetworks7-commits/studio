@@ -19,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -319,7 +318,7 @@ export default function TradingDashboard() {
           toast({
               title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
               description: mode 
-                  ? "Your portfolio is over $1M. Trading is now probability-based."
+                  ? "Your portfolio is over $1M. Trading rules have changed."
                   : "Your portfolio is below $1M. Standard trading rules apply.",
               variant: mode ? "destructive" : "default"
           })
@@ -435,7 +434,7 @@ export default function TradingDashboard() {
       // EXTREME MODE LOGIC
       try {
         await new Promise(resolve => setTimeout(resolve, 750));
-        const isWin = Math.random() < 0.3; // 30% chance to win
+        const isWin = Math.random() < 0.2; // 20% chance to win
         const payout = isWin ? amountInUsd * 1.9 : -amountInUsd;
         
         const newUsdBalance = usdBalance + payout;
@@ -618,12 +617,6 @@ export default function TradingDashboard() {
               {marketState.replace("_", " ")}
             </span>
           </div>
-          {isExtremeMode && (
-            <Badge variant="destructive" className="gap-1.5">
-              <Zap className="h-4 w-4" />
-              Extreme Mode
-            </Badge>
-          )}
         </div>
         {username && (
           <div className="flex items-center gap-4">
@@ -654,12 +647,13 @@ export default function TradingDashboard() {
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="font-headline">
+                  <CardTitle className="font-headline flex items-center gap-2">
                     {isExtremeMode ? "Place Bet" : "New Trade"}
+                    {isExtremeMode && <Zap className="h-5 w-5 text-destructive" />}
                   </CardTitle>
                   <CardDescription>
                     {isExtremeMode
-                      ? "30% chance to win 1.9x your bet."
+                      ? "High-risk, high-reward bets."
                       : "Buy or sell Bitcoin."}
                   </CardDescription>
                 </div>
