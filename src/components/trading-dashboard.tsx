@@ -6,8 +6,8 @@ import {
   ArrowDown,
   ArrowUp,
   Bitcoin,
-  Landmark,
   Leaf,
+  Landmark,
   Loader2,
   LogOut,
   Monitor,
@@ -86,22 +86,22 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.005,
-        transitionProb: 0.015, // Low chance to leave this state
+        volatility: 0.01,
+        transitionProb: 0.025,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.003,
-        transitionProb: 0.01,
+        volatility: 0.007,
+        transitionProb: 0.02,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.006,
-        transitionProb: 0.015, // Low chance to leave this state
+        volatility: 0.012,
+        transitionProb: 0.025,
         nextRegimes: ['MID'],
     },
 };
@@ -269,7 +269,7 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range
-            const pullFactor = 0.05; // How strongly it pulls
+            const pullFactor = 0.01; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -849,5 +849,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
