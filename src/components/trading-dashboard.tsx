@@ -19,7 +19,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { simulateTradeGainLoss } from "@/ai/flows/simulate-trade-gain-loss";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -381,7 +380,8 @@ export default function TradingDashboard() {
         await update(userRef, { lastPrice: currentPrice });
       }
     };
-    savePrice();
+    const timeoutId = setTimeout(savePrice, 1000); // Save price every second
+    return () => clearTimeout(timeoutId);
   }, [currentPrice, chartType, username]);
 
   const handleLogout = async () => {
@@ -421,7 +421,7 @@ export default function TradingDashboard() {
 
     const { amount: amountInUsd } = values;
 
-    if (amountInUsd > usdBalance) {
+    if (type === 'buy' && amountInUsd > usdBalance) {
       toast({
         variant: "destructive",
         description: "Insufficient USD to place this trade.",
@@ -434,13 +434,14 @@ export default function TradingDashboard() {
     if (isExtremeMode) {
       // EXTREME MODE LOGIC
       try {
-        const result = await simulateTradeGainLoss({ betAmount: amountInUsd });
-        const { isWin, payout } = result;
+        await new Promise(resolve => setTimeout(resolve, 750));
+        const isWin = Math.random() < 0.3; // 30% chance to win
+        const payout = isWin ? amountInUsd * 1.9 : -amountInUsd;
+        
         const newUsdBalance = usdBalance + payout;
         
         const updatedValues = {
           usdBalance: newUsdBalance,
-          // In extreme mode, daily P/L is also just the payout
           dailyGain: dailyGain + (payout > 0 ? payout : 0),
           dailyLoss: dailyLoss + (payout < 0 ? payout : 0),
         };
