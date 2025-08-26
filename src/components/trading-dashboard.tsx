@@ -314,7 +314,7 @@ export default function TradingDashboard() {
             return newPrice;
         });
 
-        const nextUpdateIn = Math.random() * 250 + 100;
+        const nextUpdateIn = Math.random() * 500 + 500; // Slower update speed: 500ms-1000ms
 
         if (priceUpdateTimeoutRef.current) {
             clearTimeout(priceUpdateTimeoutRef.current);
