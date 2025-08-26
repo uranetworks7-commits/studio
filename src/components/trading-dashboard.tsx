@@ -701,7 +701,7 @@ export default function TradingDashboard() {
                   </CardTitle>
                   <CardDescription>
                     {isExtremeMode
-                      ? "High-risk, high-reward bets."
+                      ? "Enter Heavy Ammount"
                       : "Buy or sell Bitcoin."}
                   </CardDescription>
                 </div>
