@@ -13,11 +13,14 @@ import {
   Smartphone,
   ThumbsUp,
   User,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { simulateTradeGainLoss } from "@/ai/flows/simulate-trade-gain-loss";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -62,6 +65,7 @@ type TradeFormValues = z.infer<typeof formSchema>;
 const INITIAL_PRICE = 65000;
 const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
+const EXTREME_MODE_THRESHOLD = 1_000_000;
 
 interface PriceData {
   time: string;
@@ -191,6 +195,7 @@ export default function TradingDashboard() {
   const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
+  const [isExtremeMode, setIsExtremeMode] = useState(false);
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
@@ -305,23 +310,42 @@ export default function TradingDashboard() {
         clearTimeout(marketStateTimeoutRef.current);
     };
   }, [username, marketState, scheduleNextMarketState, isLoading]);
+  
+  const portfolioValue = usdBalance + btcBalance * currentPrice;
+
+  useEffect(() => {
+      const mode = portfolioValue >= EXTREME_MODE_THRESHOLD;
+      if (mode !== isExtremeMode) {
+          setIsExtremeMode(mode);
+          toast({
+              title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
+              description: mode 
+                  ? "Your portfolio is over $1M. Trading is now probability-based."
+                  : "Your portfolio is below $1M. Standard trading rules apply.",
+              variant: mode ? "destructive" : "default"
+          })
+      }
+  }, [portfolioValue, isExtremeMode, toast]);
 
   useEffect(() => {
     if (!username) return;
-  
+
     const newTime = new Date();
     const newEntry: PriceData = {
       time: newTime.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       }),
       price: currentPrice,
     };
-  
-    rawPriceHistoryRef.current = [...rawPriceHistoryRef.current, newEntry].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
-  
-    if (chartType === 'candlestick') {
+
+    rawPriceHistoryRef.current = [
+      ...rawPriceHistoryRef.current,
+      newEntry,
+    ].slice(-PRICE_HISTORY_LENGTH * CANDLESTICK_INTERVAL);
+
+    if (chartType === "candlestick") {
       const tempHistory = rawPriceHistoryRef.current;
       const candles = [];
       let i = 0;
@@ -333,7 +357,7 @@ export default function TradingDashboard() {
           const high = Math.max(...chunk.map((p) => p.price));
           const low = Math.min(...chunk.map((p) => p.price));
           const candleTime = chunk[0].time;
-  
+
           candles.push({
             time: candleTime.substring(0, 5),
             price: close,
@@ -344,28 +368,30 @@ export default function TradingDashboard() {
       }
       setPriceHistory(candles.slice(-PRICE_HISTORY_LENGTH));
     } else {
-        const currentHistory = rawPriceHistoryRef.current.map(d => ({...d, time: d.time.substring(0,5)}));
-        setPriceHistory(currentHistory.slice(-PRICE_HISTORY_LENGTH));
+      const currentHistory = rawPriceHistoryRef.current.map((d) => ({
+        ...d,
+        time: d.time.substring(0, 5),
+      }));
+      setPriceHistory(currentHistory.slice(-PRICE_HISTORY_LENGTH));
     }
 
     const savePrice = async () => {
-        if(username) {
-            const userRef = ref(db, `users/${username}`);
-            await update(userRef, { lastPrice: currentPrice });
-        }
-    }
+      if (username) {
+        const userRef = ref(db, `users/${username}`);
+        await update(userRef, { lastPrice: currentPrice });
+      }
+    };
     savePrice();
-
   }, [currentPrice, chartType, username]);
 
   const handleLogout = async () => {
     if (username) {
-        try {
-            const userRef = ref(db, `users/${username}`);
-            await update(userRef, { lastPrice: currentPrice });
-        } catch (error) {
-            console.error("Failed to save last price on logout", error);
-        }
+      try {
+        const userRef = ref(db, `users/${username}`);
+        await update(userRef, { lastPrice: currentPrice });
+      } catch (error) {
+        console.error("Failed to save last price on logout", error);
+      }
     }
     setUsername(null);
     setUsdBalance(0);
@@ -395,93 +421,123 @@ export default function TradingDashboard() {
 
     const { amount: amountInUsd } = values;
 
-    if (type === "sell") {
-      const btcAmountEquivalent = amountInUsd / currentPrice;
-      if (btcAmountEquivalent > btcBalance) {
-        toast({
-          variant: "destructive",
-          description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
-            8
-          )} BTC.`,
-        });
-        return;
-      }
-      setIsTrading(true);
-      await new Promise(resolve => setTimeout(resolve, 750));
-    } else {
-      setIsTrading(true);
-    }
-    
-    const currentUserData: UserData = {
-      usdBalance,
-      btcBalance,
-      avgBtcCost,
-      dailyGain,
-      dailyLoss,
-    };
-
-    if (type === "buy" && amountInUsd > usdBalance) {
+    if (amountInUsd > usdBalance) {
       toast({
         variant: "destructive",
-        description: "Insufficient USD balance.",
+        description: "Insufficient USD to place this trade.",
       });
-      setIsTrading(false);
       return;
     }
     
-    const result = calculateTrade(
-      type,
-      amountInUsd,
-      currentPrice,
-      currentUserData
-    );
-    const updatedValues = {
-      usdBalance: result.usdBalance,
-      btcBalance: result.btcBalance,
-      avgBtcCost: result.avgBtcCost,
-      dailyGain: result.dailyGain,
-      dailyLoss: result.dailyLoss,
-    };
+    setIsTrading(true);
 
+    if (isExtremeMode) {
+      // EXTREME MODE LOGIC
+      try {
+        const result = await simulateTradeGainLoss({ betAmount: amountInUsd });
+        const { isWin, payout } = result;
+        const newUsdBalance = usdBalance + payout;
+        
+        const updatedValues = {
+          usdBalance: newUsdBalance,
+          // In extreme mode, daily P/L is also just the payout
+          dailyGain: dailyGain + (payout > 0 ? payout : 0),
+          dailyLoss: dailyLoss + (payout < 0 ? payout : 0),
+        };
 
-    try {
-      const userRef = ref(db, `users/${username}`);
-      await update(userRef, updatedValues);
+        const userRef = ref(db, `users/${username}`);
+        await update(userRef, updatedValues);
 
-      // State updates after successful save
-      setUsdBalance(result.usdBalance);
-      setBtcBalance(result.btcBalance);
-      setAvgBtcCost(result.avgBtcCost);
-      setDailyGain(result.dailyGain);
-      setDailyLoss(result.dailyLoss);
-
-      if (type === "buy") {
+        setUsdBalance(newUsdBalance);
+        setDailyGain(updatedValues.dailyGain);
+        setDailyLoss(updatedValues.dailyLoss);
+        
         toast({
-          title: `Trade Successful`,
-          description: `Bought ${result.btcAmountTraded.toFixed(
-            8
-          )} BTC for $${amountInUsd.toFixed(2)}.`,
-        });
-      } else {
-        toast({
-          title: `Trade Successful`,
-          description: `Sold ${result.btcAmountTraded.toFixed(
-            8
-          )} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(
-            2
-          )}`,
-          variant: result.tradePL >= 0 ? "default" : "destructive",
-        });
+          title: isWin ? "You Won!" : "You Lost!",
+          description: `You ${isWin ? 'gained' : 'lost'} $${Math.abs(payout).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
+          variant: isWin ? "default" : "destructive",
+        })
+
+      } catch (err) {
+         console.error("Extreme mode trade error: ", err);
+         toast({
+            variant: "destructive",
+            description: "An error occurred during the trade simulation.",
+         });
+      } finally {
+        setIsTrading(false);
+        form.reset({ amount: values.amount });
       }
-    } catch (err) {
-      console.error("Firebase error during trade: ", err);
-      toast({
-        variant: "destructive",
-        description: "Error saving trade. Please try again.",
-      });
-    } finally {
-      setIsTrading(false);
-      form.reset({ amount: values.amount });
+
+    } else {
+      // NORMAL MODE LOGIC
+      if (type === "sell") {
+        const btcAmountEquivalent = amountInUsd / currentPrice;
+        if (btcAmountEquivalent > btcBalance) {
+          toast({
+            variant: "destructive",
+            description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
+          });
+          setIsTrading(false);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 750));
+      }
+
+      const currentUserData: UserData = {
+        usdBalance,
+        btcBalance,
+        avgBtcCost,
+        dailyGain,
+        dailyLoss,
+      };
+
+      const result = calculateTrade(
+        type,
+        amountInUsd,
+        currentPrice,
+        currentUserData
+      );
+      const updatedValues = {
+        usdBalance: result.usdBalance,
+        btcBalance: result.btcBalance,
+        avgBtcCost: result.avgBtcCost,
+        dailyGain: result.dailyGain,
+        dailyLoss: result.dailyLoss,
+      };
+
+      try {
+        const userRef = ref(db, `users/${username}`);
+        await update(userRef, updatedValues);
+
+        setUsdBalance(result.usdBalance);
+        setBtcBalance(result.btcBalance);
+        setAvgBtcCost(result.avgBtcCost);
+        setDailyGain(result.dailyGain);
+        setDailyLoss(result.dailyLoss);
+
+        if (type === "buy") {
+          toast({
+            title: `Trade Successful`,
+            description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+          });
+        } else {
+          toast({
+            title: `Trade Successful`,
+            description: `Sold ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(2)}`,
+            variant: result.tradePL >= 0 ? "default" : "destructive",
+          });
+        }
+      } catch (err) {
+        console.error("Firebase error during trade: ", err);
+        toast({
+          variant: "destructive",
+          description: "Error saving trade. Please try again.",
+        });
+      } finally {
+        setIsTrading(false);
+        form.reset({ amount: values.amount });
+      }
     }
   };
 
@@ -506,22 +562,21 @@ export default function TradingDashboard() {
     try {
       const userRef = ref(db, `users/${username}`);
       await update(userRef, {
-          usdBalance: newUsdBalance,
-          dailyGain: newDailyGain,
-          dailyLoss: newDailyLoss,
-        });
+        usdBalance: newUsdBalance,
+        dailyGain: newDailyGain,
+        dailyLoss: newDailyLoss,
+      });
 
-        // Update state only after successful DB operation
-        setUsdBalance(newUsdBalance);
-        setDailyGain(newDailyGain);
-        setDailyLoss(newDailyLoss);
+      setUsdBalance(newUsdBalance);
+      setDailyGain(newDailyGain);
+      setDailyLoss(newDailyLoss);
 
-        toast({
-          title: "Withdrawal Successful",
-          description: `$${todaysPL.toFixed(
-            2
-          )} has been transferred to your USD balance.`,
-        });
+      toast({
+        title: "Withdrawal Successful",
+        description: `$${todaysPL.toFixed(
+          2
+        )} has been transferred to your USD balance.`,
+      });
     } catch (err) {
       console.error("Firebase error during withdrawal: ", err);
       toast({
@@ -533,7 +588,6 @@ export default function TradingDashboard() {
     }
   };
 
-  const portfolioValue = usdBalance + btcBalance * currentPrice;
   const todaysPL = dailyGain + dailyLoss;
 
   if (isLoading) {
@@ -563,6 +617,12 @@ export default function TradingDashboard() {
               {marketState.replace("_", " ")}
             </span>
           </div>
+          {isExtremeMode && (
+            <Badge variant="destructive" className="gap-1.5">
+              <Zap className="h-4 w-4" />
+              Extreme Mode
+            </Badge>
+          )}
         </div>
         {username && (
           <div className="flex items-center gap-4">
@@ -571,7 +631,7 @@ export default function TradingDashboard() {
               <span>{username}</span>
             </div>
             <Button variant="outline" size="icon" onClick={handleFeedback}>
-                <ThumbsUp className="h-4 w-4" />
+              <ThumbsUp className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="icon" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
@@ -590,11 +650,17 @@ export default function TradingDashboard() {
           </div>
 
           <div className="flex flex-col gap-6">
-          <Card>
+            <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="font-headline">New Trade</CardTitle>
-                  <CardDescription>Buy or sell Bitcoin.</CardDescription>
+                  <CardTitle className="font-headline">
+                    {isExtremeMode ? "Place Bet" : "New Trade"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isExtremeMode
+                      ? "30% chance to win 1.9x your bet."
+                      : "Buy or sell Bitcoin."}
+                  </CardDescription>
                 </div>
                 {isMobile && (
                   <Button
@@ -602,11 +668,7 @@ export default function TradingDashboard() {
                     size="icon"
                     onClick={() => setIsDesktopView(!isDesktopView)}
                   >
-                    {isDesktopView ? (
-                      <Smartphone />
-                    ) : (
-                      <Monitor />
-                    )}
+                    {isDesktopView ? <Smartphone /> : <Monitor />}
                   </Button>
                 )}
               </CardHeader>
@@ -618,7 +680,9 @@ export default function TradingDashboard() {
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (USD)</FormLabel>
+                          <FormLabel>
+                            {isExtremeMode ? "Bet Amount (USD)" : "Amount (USD)"}
+                          </FormLabel>
                           <FormControl>
                             <Input
                               placeholder="100.00"
@@ -636,39 +700,41 @@ export default function TradingDashboard() {
                         </FormItem>
                       )}
                     />
-                    <FormItem>
-                      <FormLabel>Chart Type</FormLabel>
-                      <Select
-                        onValueChange={(value: "area" | "candlestick") =>
-                          setChartType(value)
-                        }
-                        defaultValue={chartType}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select chart type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="area">Area</SelectItem>
-                          <SelectItem value="candlestick">
-                            Candlestick
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
+                    {!isExtremeMode && (
+                        <FormItem>
+                        <FormLabel>Chart Type</FormLabel>
+                        <Select
+                            onValueChange={(value: "area" | "candlestick") =>
+                            setChartType(value)
+                            }
+                            defaultValue={chartType}
+                        >
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select chart type" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="area">Area</SelectItem>
+                            <SelectItem value="candlestick">
+                                Candlestick
+                            </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        </FormItem>
+                    )}
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
-                      disabled={isTrading}
+                      disabled={isTrading || isExtremeMode}
                     >
-                      {isTrading ? (
+                      {isTrading && !isExtremeMode ? (
                         <Loader2 className="animate-spin mr-2" />
                       ) : (
                         <ArrowUp />
                       )}
-                      {isTrading ? "Buying..." : "Buy"}
+                      {isTrading && !isExtremeMode ? "Buying..." : "Buy"}
                     </Button>
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
@@ -680,7 +746,13 @@ export default function TradingDashboard() {
                       ) : (
                         <ArrowDown />
                       )}
-                      {isTrading ? "Selling..." : "Sell"}
+                      {isExtremeMode
+                        ? isTrading
+                          ? "Placing Bet..."
+                          : "Place Bet"
+                        : isTrading
+                        ? "Selling..."
+                        : "Sell"}
                     </Button>
                   </CardFooter>
                 </form>
@@ -772,5 +844,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
