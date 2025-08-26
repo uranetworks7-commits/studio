@@ -86,22 +86,22 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.08,
-        transitionProb: 0.05,
+        volatility: 0.12,
+        transitionProb: 0.08,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.05,
-        transitionProb: 0.04,
+        volatility: 0.09,
+        transitionProb: 0.06,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.09,
-        transitionProb: 0.05,
+        volatility: 0.13,
+        transitionProb: 0.08,
         nextRegimes: ['MID'],
     },
 };
@@ -269,7 +269,7 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.001; // How strongly it pulls
+            const pullFactor = 0.0005; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
