@@ -6,7 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   Bitcoin,
-  Leaf,
+  Info,
   Landmark,
   Loader2,
   LogOut,
@@ -15,7 +15,6 @@ import {
   ThumbsUp,
   User,
   Zap,
-  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -83,39 +82,31 @@ type PriceRegime = {
     nextRegimeWeights?: number[];
 };
   
-type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH' | 'CRASH';
+type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH';
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 1.5,
-        transitionProb: 0.25,
-        nextRegimes: ['MID', 'CRASH'],
-        nextRegimeWeights: [0.999, 0.001]
+        volatility: 2.2,
+        transitionProb: 0.35, // More likely to transition out
+        nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 1.2,
-        transitionProb: 0.2,
-        nextRegimes: ['LOW', 'HIGH', 'CRASH'],
-        nextRegimeWeights: [0.4995, 0.4995, 0.001],
+        volatility: 1.8,
+        transitionProb: 0.15, // Less likely to transition out, making it the "home" state
+        nextRegimes: ['LOW', 'HIGH'],
+        nextRegimeWeights: [0.5, 0.5],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 1.8,
-        transitionProb: 0.25,
+        volatility: 2.5,
+        transitionProb: 0.35, // More likely to transition out
         nextRegimes: ['MID'],
     },
-    CRASH: {
-        name: 'Black Swan Event',
-        range: [900, 5000],
-        volatility: 3.5,
-        transitionProb: 0.4,
-        nextRegimes: ['LOW']
-    }
 };
 
 interface UserData {
@@ -271,10 +262,10 @@ export default function TradingDashboard() {
 
     const updatePrice = () => {
         let currentRegimeKey = regimeRef.current;
+        const currentRegimeInfo = priceRegimes[currentRegimeKey];
 
         // --- Regime Transition Logic ---
-        if (Math.random() < priceRegimes[currentRegimeKey].transitionProb) {
-            const currentRegimeInfo = priceRegimes[currentRegimeKey];
+        if (Math.random() < currentRegimeInfo.transitionProb) {
             const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
 
             if (nextRegimeWeights) {
@@ -300,8 +291,8 @@ export default function TradingDashboard() {
             const target = (min + max) / 2;
             const volatility = currentRegime.volatility;
 
-            // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.000005; 
+            // Strong pull towards the middle of the range to keep it centered
+            const pullFactor = 0.0005; 
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -309,7 +300,7 @@ export default function TradingDashboard() {
 
             let newPrice = prevPrice + randomComponent + pull;
             
-            // Push away from boundaries
+            // Push away from boundaries to avoid getting stuck
             if (newPrice > max) {
               newPrice -= (newPrice - max) * 0.1;
             }
@@ -317,7 +308,8 @@ export default function TradingDashboard() {
               newPrice += (min - newPrice) * 0.1;
             }
 
-            if (newPrice < 1) newPrice = 1;
+            // A hard floor to prevent catastrophic, unrealistic drops
+            if (newPrice < 1000) newPrice = 1000;
 
             return newPrice;
         });
@@ -704,7 +696,6 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
-                        <Leaf className="h-5 w-5 text-green-500" />
                       </>
                     )}
                   </CardTitle>
@@ -905,4 +896,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
