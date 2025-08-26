@@ -111,13 +111,13 @@ const stateBehaviors: {
   },
   PUMP: {
     duration: [1, 3],
-    change: () => Math.random() * 0.06 + 0.02, // More intense pump
+    change: () => Math.random() * 0.08 + 0.04, // More intense pump
     next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
     updateInterval: [300, 600], // Faster updates
   },
   DUMP: {
     duration: [1, 3],
-    change: () => Math.random() * -0.06 - 0.02, // More intense dump
+    change: () => Math.random() * -0.08 - 0.04, // More intense dump
     next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
     updateInterval: [300, 600], // Faster updates
   },
@@ -129,6 +129,7 @@ interface UserData {
   avgBtcCost: number;
   dailyGain: number;
   dailyLoss: number;
+  lastPrice?: number;
 }
 
 function calculateTrade(
@@ -224,6 +225,7 @@ export default function TradingDashboard() {
           setAvgBtcCost(userData.avgBtcCost ?? 0);
           setDailyGain(userData.dailyGain ?? 0);
           setDailyLoss(userData.dailyLoss ?? 0);
+          setCurrentPrice(userData.lastPrice ?? INITIAL_PRICE);
 
           setUsername(name);
           localStorage.setItem("bitsim_username", name);
@@ -345,9 +347,26 @@ export default function TradingDashboard() {
         const currentHistory = rawPriceHistoryRef.current.map(d => ({...d, time: d.time.substring(0,5)}));
         setPriceHistory(currentHistory.slice(-PRICE_HISTORY_LENGTH));
     }
+
+    const savePrice = async () => {
+        if(username) {
+            const userRef = ref(db, `users/${username}`);
+            await update(userRef, { lastPrice: currentPrice });
+        }
+    }
+    savePrice();
+
   }, [currentPrice, chartType, username]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (username) {
+        try {
+            const userRef = ref(db, `users/${username}`);
+            await update(userRef, { lastPrice: currentPrice });
+        } catch (error) {
+            console.error("Failed to save last price on logout", error);
+        }
+    }
     setUsername(null);
     setUsdBalance(0);
     setBtcBalance(0);
@@ -753,3 +772,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
