@@ -15,7 +15,7 @@ import {
   ThumbsUp,
   User,
   Zap,
-  MoreVertical,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -31,12 +31,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -94,22 +88,22 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.13,
-        transitionProb: 0.08,
+        volatility: 0.8,
+        transitionProb: 0.15,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.12,
-        transitionProb: 0.06,
+        volatility: 0.7,
+        transitionProb: 0.1,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.14,
-        transitionProb: 0.08,
+        volatility: 0.9,
+        transitionProb: 0.15,
         nextRegimes: ['MID'],
     },
 };
@@ -278,7 +272,7 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.0001; // How strongly it pulls
+            const pullFactor = 0.00001; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -768,7 +762,7 @@ export default function TradingDashboard() {
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
                       variant="destructive"
-                      disabled={isTrading || isExtremeMode}
+                      disabled={isTrading}
                     >
                       {isTrading ? (
                         <Loader2 className="animate-spin mr-2" />
@@ -790,19 +784,12 @@ export default function TradingDashboard() {
                     Your current assets and total value.
                     </CardDescription>
                  </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="h-4 w-4" />
-                       <span className="sr-only">More options</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                       <Link href="/about" className="w-full">About</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Link href="/about" passHref>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Info className="h-4 w-4" />
+                    <span className="sr-only">About</span>
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent className="space-y-4 pt-4">
                 {typeof usdBalance === "number" &&
@@ -882,3 +869,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
