@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDown,
   ArrowUp,
+  Battery,
   Bitcoin,
   Info,
   Landmark,
@@ -89,14 +90,14 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
         name: 'Bearish Correction',
         range: [25000, 50000],
         volatility: 2.2,
-        transitionProb: 0.35, // More likely to transition out
+        transitionProb: 0.35, 
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
         volatility: 1.8,
-        transitionProb: 0.15, // Less likely to transition out, making it the "home" state
+        transitionProb: 0.15, 
         nextRegimes: ['LOW', 'HIGH'],
         nextRegimeWeights: [0.5, 0.5],
     },
@@ -104,7 +105,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
         name: 'Bull Run',
         range: [70000, 120000],
         volatility: 2.5,
-        transitionProb: 0.35, // More likely to transition out
+        transitionProb: 0.35, 
         nextRegimes: ['MID'],
     },
 };
@@ -649,7 +650,7 @@ export default function TradingDashboard() {
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-headline font-bold text-primary">
-            BitSim RealTrade
+            URA Trade
           </h1>
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
@@ -696,6 +697,7 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
+                        <Battery className="h-5 w-5 text-primary" />
                       </>
                     )}
                   </CardTitle>

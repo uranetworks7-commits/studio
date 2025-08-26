@@ -5,7 +5,7 @@ import { ViewportProvider } from '@/context/viewport-context';
 import ClientLayout from '@/components/client-layout';
 
 export const metadata: Metadata = {
-  title: 'BitSim RealTrade',
+  title: 'URA Trade',
   description: 'A Trading Simulation',
 };
 
