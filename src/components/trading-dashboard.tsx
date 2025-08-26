@@ -86,21 +86,21 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.02,
+        volatility: 0.08,
         transitionProb: 0.05,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.014,
+        volatility: 0.05,
         transitionProb: 0.04,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.024,
+        volatility: 0.09,
         transitionProb: 0.05,
         nextRegimes: ['MID'],
     },
@@ -269,7 +269,7 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.005; // How strongly it pulls
+            const pullFactor = 0.001; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -283,7 +283,7 @@ export default function TradingDashboard() {
             return newPrice;
         });
 
-        const nextUpdateIn = Math.random() * 1000 + 500; // Update every 0.5-1.5 seconds
+        const nextUpdateIn = Math.random() * 800 + 400; // Update every 0.4-1.2 seconds
 
         if (priceUpdateTimeoutRef.current) {
             clearTimeout(priceUpdateTimeoutRef.current);
@@ -414,8 +414,13 @@ export default function TradingDashboard() {
 
     if (isExtremeMode) {
       // EXTREME MODE LOGIC
-      if (type === 'sell' || type === 'buy') {
-          // Both buttons now act as 'Place Bet'
+      if (type === 'sell') {
+        toast({
+          variant: "destructive",
+          description: "Sell option is disabled in Extreme Mode.",
+        });
+        setIsTrading(false);
+        return;
       }
 
       if (amountInUsd > usdBalance) {
@@ -736,32 +741,32 @@ export default function TradingDashboard() {
                   <CardFooter className="grid grid-cols-2 gap-4">
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
-                      disabled={isTrading || isExtremeMode}
+                      disabled={isTrading}
                     >
                       {isTrading && !isExtremeMode ? (
                         <Loader2 className="animate-spin mr-2" />
                       ) : (
                         <ArrowUp />
                       )}
-                      {isTrading && !isExtremeMode ? "Buying..." : "Buy"}
-                    </Button>
-                    <Button
-                      onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
-                      variant={isExtremeMode ? "default" : "destructive"}
-                      disabled={isTrading}
-                    >
-                      {isTrading ? (
-                        <Loader2 className="animate-spin mr-2" />
-                      ) : (
-                        isExtremeMode ? <Zap/> : <ArrowDown />
-                      )}
                       {isExtremeMode
                         ? isTrading
                           ? "Placing Bet..."
                           : "Place Bet"
                         : isTrading
-                        ? "Selling..."
-                        : "Sell"}
+                        ? "Buying..."
+                        : "Buy"}
+                    </Button>
+                    <Button
+                      onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
+                      variant="destructive"
+                      disabled={isTrading || isExtremeMode}
+                    >
+                      {isTrading ? (
+                        <Loader2 className="animate-spin mr-2" />
+                      ) : (
+                        <ArrowDown />
+                      )}
+                      {isTrading ? "Selling..." : "Sell"}
                     </Button>
                   </CardFooter>
                 </form>
