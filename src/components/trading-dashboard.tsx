@@ -15,7 +15,9 @@ import {
   ThumbsUp,
   User,
   Zap,
+  MoreVertical,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -29,6 +31,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -86,21 +94,21 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.12,
+        volatility: 0.13,
         transitionProb: 0.08,
         nextRegimes: ['MID'],
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.09,
+        volatility: 0.12,
         transitionProb: 0.06,
         nextRegimes: ['LOW', 'HIGH'],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.13,
+        volatility: 0.14,
         transitionProb: 0.08,
         nextRegimes: ['MID'],
     },
@@ -207,10 +215,11 @@ export default function TradingDashboard() {
           setAvgBtcCost(userData.avgBtcCost ?? 0);
           setDailyGain(userData.dailyGain ?? 0);
           setDailyLoss(userData.dailyLoss ?? 0);
-          setCurrentPrice(userData.lastPrice ?? INITIAL_PRICE);
+          
+          const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
+          setCurrentPrice(lastPrice);
            
           // Determine initial regime based on last price
-           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
            if (lastPrice < priceRegimes.LOW.range[1]) {
                setPriceRegime('LOW');
            } else if (lastPrice > priceRegimes.HIGH.range[0]) {
@@ -269,7 +278,7 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.0005; // How strongly it pulls
+            const pullFactor = 0.0001; // How strongly it pulls
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
@@ -774,13 +783,28 @@ export default function TradingDashboard() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="font-headline">Portfolio</CardTitle>
-                <CardDescription>
-                  Your current assets and total value.
-                </CardDescription>
+               <CardHeader className="flex flex-row items-center justify-between pb-2">
+                 <div className="space-y-1.5">
+                    <CardTitle className="font-headline">Portfolio</CardTitle>
+                    <CardDescription>
+                    Your current assets and total value.
+                    </CardDescription>
+                 </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreVertical className="h-4 w-4" />
+                       <span className="sr-only">More options</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                       <Link href="/about">About</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pt-4">
                 {typeof usdBalance === "number" &&
                 typeof btcBalance === "number" ? (
                   <>
