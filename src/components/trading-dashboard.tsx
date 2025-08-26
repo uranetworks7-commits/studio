@@ -799,7 +799,7 @@ export default function TradingDashboard() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                       <Link href="/about">About</Link>
+                       <Link href="/about" className="w-full">About</Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
