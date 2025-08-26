@@ -7,6 +7,7 @@ import {
   ArrowUp,
   Bitcoin,
   Landmark,
+  Leaf,
   Loader2,
   LogOut,
   Monitor,
@@ -71,58 +72,38 @@ interface PriceData {
   ohlc?: [number, number, number, number];
 }
 
-type MarketState =
-  | "BULL_RUN"
-  | "BEAR_MARKET"
-  | "CONSOLIDATION"
-  | "VOLATILITY_SPIKE"
-  | "PUMP"
-  | "DUMP";
+type PriceRegime = {
+    name: string;
+    range: [number, number]; // min, max
+    volatility: number; // volatility factor
+    transitionProb: number; // probability of transitioning out
+    nextRegimes: PriceRegimeKey[];
+};
+  
+type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH';
 
-const stateBehaviors: {
-  [key in MarketState]: {
-    duration: [number, number];
-    change: () => number;
-    next: MarketState[];
-    updateInterval: [number, number];
-  };
-} = {
-  BULL_RUN: {
-    duration: [20, 40],
-    change: () => Math.random() * 0.003 + 0.0005,
-    next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BEAR_MARKET"],
-    updateInterval: [1200, 1800],
-  },
-  BEAR_MARKET: {
-    duration: [20, 40],
-    change: () => Math.random() * -0.003 - 0.0005,
-    next: ["CONSOLIDATION", "VOLATILITY_SPIKE", "BULL_RUN"],
-    updateInterval: [1200, 1800],
-  },
-  CONSOLIDATION: {
-    duration: [15, 30],
-    change: () => (Math.random() - 0.5) * 0.0015,
-    next: ["BULL_RUN", "BEAR_MARKET", "VOLATILITY_SPIKE", "PUMP", "DUMP"],
-    updateInterval: [1500, 2500],
-  },
-  VOLATILITY_SPIKE: {
-    duration: [8, 15],
-    change: () => (Math.random() - 0.5) * 0.025, // Increased volatility
-    next: ["CONSOLIDATION", "BULL_RUN", "BEAR_MARKET"],
-    updateInterval: [400, 800], // Faster updates
-  },
-  PUMP: {
-    duration: [1, 3],
-    change: () => Math.random() * 0.08 + 0.04, // More intense pump
-    next: ["DUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [300, 600], // Faster updates
-  },
-  DUMP: {
-    duration: [1, 3],
-    change: () => Math.random() * -0.08 - 0.04, // More intense dump
-    next: ["PUMP", "VOLATILITY_SPIKE", "CONSOLIDATION"],
-    updateInterval: [300, 600], // Faster updates
-  },
+const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
+    LOW: {
+        name: 'Bearish Correction',
+        range: [25000, 50000],
+        volatility: 0.005,
+        transitionProb: 0.015, // Low chance to leave this state
+        nextRegimes: ['MID'],
+    },
+    MID: {
+        name: 'Market Consolidation',
+        range: [50000, 75000],
+        volatility: 0.003,
+        transitionProb: 0.01,
+        nextRegimes: ['LOW', 'HIGH'],
+    },
+    HIGH: {
+        name: 'Bull Run',
+        range: [70000, 120000],
+        volatility: 0.006,
+        transitionProb: 0.015, // Low chance to leave this state
+        nextRegimes: ['MID'],
+    },
 };
 
 interface UserData {
@@ -200,20 +181,18 @@ export default function TradingDashboard() {
   const rawPriceHistoryRef = useRef<PriceData[]>([]);
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
 
-  const [marketState, setMarketState] = useState<MarketState>("CONSOLIDATION");
+  const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>('MID');
 
   const { toast } = useToast();
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
-
-  const marketStateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: 100,
-    },
+    defaultValues: {},
   });
+
 
   const handleUserLogin = useCallback(
     async (name: string): Promise<"success" | "not_found" | "error"> => {
@@ -229,6 +208,16 @@ export default function TradingDashboard() {
           setDailyGain(userData.dailyGain ?? 0);
           setDailyLoss(userData.dailyLoss ?? 0);
           setCurrentPrice(userData.lastPrice ?? INITIAL_PRICE);
+           
+          // Determine initial regime based on last price
+           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
+           if (lastPrice < priceRegimes.LOW.range[1]) {
+               setPriceRegime('LOW');
+           } else if (lastPrice > priceRegimes.HIGH.range[0]) {
+               setPriceRegime('HIGH');
+           } else {
+               setPriceRegime('MID');
+           }
 
           setUsername(name);
           localStorage.setItem("bitsim_username", name);
@@ -259,55 +248,56 @@ export default function TradingDashboard() {
     }
   }, [handleUserLogin]);
 
-  const scheduleNextMarketState = useCallback(() => {
-    if (marketStateTimeoutRef.current) {
-      clearTimeout(marketStateTimeoutRef.current);
-    }
-    const behavior = stateBehaviors[marketState];
-    const [min, max] = behavior.duration;
-    const duration = (Math.random() * (max - min) + min) * 1000;
-
-    marketStateTimeoutRef.current = setTimeout(() => {
-      const nextStates = behavior.next;
-      const nextState =
-        nextStates[Math.floor(Math.random() * nextStates.length)];
-      setMarketState(nextState);
-    }, duration);
-  }, [marketState]);
-
   useEffect(() => {
     if (!username || isLoading) return;
 
-    scheduleNextMarketState();
-
     const updatePrice = () => {
-      setCurrentPrice((prevPrice) => {
-        const changePercent = stateBehaviors[marketState].change();
-        let newPrice = prevPrice * (1 + changePercent);
-        if (newPrice < 1) newPrice = 1;
-        return newPrice;
-      });
+        
+        let currentRegimeKey = priceRegime;
+        // --- Regime Transition Logic ---
+        if (Math.random() < priceRegimes[currentRegimeKey].transitionProb) {
+            const nextPossibleRegimes = priceRegimes[currentRegimeKey].nextRegimes;
+            currentRegimeKey = nextPossibleRegimes[Math.floor(Math.random() * nextPossibleRegimes.length)];
+            setPriceRegime(currentRegimeKey);
+        }
 
-      const [minInterval, maxInterval] =
-        stateBehaviors[marketState].updateInterval;
-      const nextUpdateIn =
-        Math.random() * (maxInterval - minInterval) + minInterval;
+        const currentRegime = priceRegimes[currentRegimeKey];
 
-      if (priceUpdateTimeoutRef.current) {
-        clearTimeout(priceUpdateTimeoutRef.current);
-      }
-      priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
+        setCurrentPrice(prevPrice => {
+            const [min, max] = currentRegime.range;
+            const target = (min + max) / 2;
+            const volatility = currentRegime.volatility;
+
+            // Pull towards the middle of the range
+            const pullFactor = 0.05; // How strongly it pulls
+            const pull = (target - prevPrice) * pullFactor * Math.random();
+
+            // Random walk component
+            const randomComponent = (Math.random() - 0.5) * prevPrice * volatility;
+
+            let newPrice = prevPrice + randomComponent + pull;
+
+            // Clamp price to a reasonable minimum
+            if (newPrice < 1) newPrice = 1;
+
+            return newPrice;
+        });
+
+        const nextUpdateIn = Math.random() * 1000 + 500; // Update every 0.5-1.5 seconds
+
+        if (priceUpdateTimeoutRef.current) {
+            clearTimeout(priceUpdateTimeoutRef.current);
+        }
+        priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
     };
 
     updatePrice();
 
     return () => {
-      if (priceUpdateTimeoutRef.current)
-        clearTimeout(priceUpdateTimeoutRef.current);
-      if (marketStateTimeoutRef.current)
-        clearTimeout(marketStateTimeoutRef.current);
+        if (priceUpdateTimeoutRef.current) clearTimeout(priceUpdateTimeoutRef.current);
     };
-  }, [username, marketState, scheduleNextMarketState, isLoading]);
+
+  }, [username, isLoading, priceRegime]);
   
   const portfolioValue = usdBalance + btcBalance * currentPrice;
 
@@ -420,18 +410,19 @@ export default function TradingDashboard() {
 
     const { amount: amountInUsd } = values;
 
-    if (type === 'buy' && amountInUsd > usdBalance) {
-      toast({
-        variant: "destructive",
-        description: "Insufficient USD to place this trade.",
-      });
-      return;
-    }
-    
     setIsTrading(true);
 
     if (isExtremeMode) {
       // EXTREME MODE LOGIC
+      if (amountInUsd > usdBalance) {
+        toast({
+          variant: "destructive",
+          description: "Insufficient USD to place this bet.",
+        });
+        setIsTrading(false);
+        return;
+      }
+      
       try {
         await new Promise(resolve => setTimeout(resolve, 750));
         const isWin = Math.random() < 0.2; // 20% chance to win
@@ -471,6 +462,14 @@ export default function TradingDashboard() {
 
     } else {
       // NORMAL MODE LOGIC
+      if (type === "buy" && amountInUsd > usdBalance) {
+        toast({
+          variant: "destructive",
+          description: "Insufficient USD to place this trade.",
+        });
+        setIsTrading(false);
+        return;
+      }
       if (type === "sell") {
         const btcAmountEquivalent = amountInUsd / currentPrice;
         if (btcAmountEquivalent > btcBalance) {
@@ -481,8 +480,9 @@ export default function TradingDashboard() {
           setIsTrading(false);
           return;
         }
-        await new Promise((resolve) => setTimeout(resolve, 750));
       }
+      await new Promise((resolve) => setTimeout(resolve, 750));
+
 
       const currentUserData: UserData = {
         usdBalance,
@@ -614,7 +614,7 @@ export default function TradingDashboard() {
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
             <span className="font-bold text-foreground">
-              {marketState.replace("_", " ")}
+               {priceRegimes[priceRegime].name}
             </span>
           </div>
         </div>
@@ -648,8 +648,17 @@ export default function TradingDashboard() {
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle className="font-headline flex items-center gap-2">
-                    {isExtremeMode ? "Place Bet" : "New Trade"}
-                    {isExtremeMode && <Zap className="h-5 w-5 text-destructive" />}
+                    {isExtremeMode ? (
+                      <>
+                        Place Bet
+                        <Zap className="h-5 w-5 text-destructive" />
+                      </>
+                    ) : (
+                      <>
+                        New Trade
+                        <Leaf className="h-5 w-5 text-green-500" />
+                      </>
+                    )}
                   </CardTitle>
                   <CardDescription>
                     {isExtremeMode
@@ -686,7 +695,8 @@ export default function TradingDashboard() {
                               step="0.01"
                               disabled={isTrading}
                               onChange={(e) => {
-                                field.onChange(e.target.value === '' ? '' : e.target.value);
+                                const value = e.target.value;
+                                field.onChange(value === '' ? undefined : Number(value));
                               }}
                               value={field.value ?? ""}
                             />
@@ -733,13 +743,13 @@ export default function TradingDashboard() {
                     </Button>
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
-                      variant="destructive"
-                      disabled={isTrading}
+                      variant={isExtremeMode ? "default" : "destructive"}
+                      disabled={isTrading || (isExtremeMode && type === 'sell')}
                     >
                       {isTrading ? (
                         <Loader2 className="animate-spin mr-2" />
                       ) : (
-                        <ArrowDown />
+                        isExtremeMode ? <Zap/> : <ArrowDown />
                       )}
                       {isExtremeMode
                         ? isTrading
@@ -839,3 +849,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
