@@ -76,36 +76,46 @@ interface PriceData {
 
 type PriceRegime = {
     name: string;
-    range: [number, number]; // min, max
-    volatility: number; // volatility factor
-    transitionProb: number; // probability of transitioning out
+    range: [number, number]; 
+    volatility: number; 
+    transitionProb: number; 
     nextRegimes: PriceRegimeKey[];
+    nextRegimeWeights?: number[];
 };
   
-type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH';
+type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH' | 'CRASH';
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: 'Bearish Correction',
         range: [25000, 50000],
-        volatility: 0.8,
-        transitionProb: 0.15,
-        nextRegimes: ['MID'],
+        volatility: 1.5,
+        transitionProb: 0.25,
+        nextRegimes: ['MID', 'CRASH'],
+        nextRegimeWeights: [0.999, 0.001]
     },
     MID: {
         name: 'Market Consolidation',
         range: [50000, 75000],
-        volatility: 0.7,
-        transitionProb: 0.1,
-        nextRegimes: ['LOW', 'HIGH'],
+        volatility: 1.2,
+        transitionProb: 0.2,
+        nextRegimes: ['LOW', 'HIGH', 'CRASH'],
+        nextRegimeWeights: [0.4995, 0.4995, 0.001],
     },
     HIGH: {
         name: 'Bull Run',
         range: [70000, 120000],
-        volatility: 0.9,
-        transitionProb: 0.15,
+        volatility: 1.8,
+        transitionProb: 0.25,
         nextRegimes: ['MID'],
     },
+    CRASH: {
+        name: 'Black Swan Event',
+        range: [900, 5000],
+        volatility: 3.5,
+        transitionProb: 0.4,
+        nextRegimes: ['LOW']
+    }
 };
 
 interface UserData {
@@ -189,6 +199,11 @@ export default function TradingDashboard() {
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
   
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const regimeRef = useRef(priceRegime);
+
+  useEffect(() => {
+    regimeRef.current = priceRegime;
+  }, [priceRegime]);
 
   const form = useForm<TradeFormValues>({
     resolver: zodResolver(formSchema),
@@ -213,7 +228,7 @@ export default function TradingDashboard() {
           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
           setCurrentPrice(lastPrice);
            
-          // Determine initial regime based on last price
+           // Determine initial regime based on last price
            if (lastPrice < priceRegimes.LOW.range[1]) {
                setPriceRegime('LOW');
            } else if (lastPrice > priceRegimes.HIGH.range[0]) {
@@ -255,12 +270,26 @@ export default function TradingDashboard() {
     if (!username || isLoading) return;
 
     const updatePrice = () => {
-        
-        let currentRegimeKey = priceRegime;
+        let currentRegimeKey = regimeRef.current;
+
         // --- Regime Transition Logic ---
         if (Math.random() < priceRegimes[currentRegimeKey].transitionProb) {
-            const nextPossibleRegimes = priceRegimes[currentRegimeKey].nextRegimes;
-            currentRegimeKey = nextPossibleRegimes[Math.floor(Math.random() * nextPossibleRegimes.length)];
+            const currentRegimeInfo = priceRegimes[currentRegimeKey];
+            const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
+
+            if (nextRegimeWeights) {
+                const random = Math.random();
+                let cumulativeWeight = 0;
+                for (let i = 0; i < nextRegimeWeights.length; i++) {
+                    cumulativeWeight += nextRegimeWeights[i];
+                    if (random < cumulativeWeight) {
+                        currentRegimeKey = nextRegimes[i];
+                        break;
+                    }
+                }
+            } else {
+                currentRegimeKey = nextRegimes[Math.floor(Math.random() * nextRegimes.length)];
+            }
             setPriceRegime(currentRegimeKey);
         }
 
@@ -272,21 +301,28 @@ export default function TradingDashboard() {
             const volatility = currentRegime.volatility;
 
             // Pull towards the middle of the range (weaken this effect for more swings)
-            const pullFactor = 0.00001; // How strongly it pulls
+            const pullFactor = 0.000005; 
             const pull = (target - prevPrice) * pullFactor * Math.random();
 
             // Random walk component
-            const randomComponent = (Math.random() - 0.5) * prevPrice * volatility;
+            const randomComponent = (Math.random() - 0.5) * prevPrice * volatility * 0.05;
 
             let newPrice = prevPrice + randomComponent + pull;
+            
+            // Push away from boundaries
+            if (newPrice > max) {
+              newPrice -= (newPrice - max) * 0.1;
+            }
+            if (newPrice < min) {
+              newPrice += (min - newPrice) * 0.1;
+            }
 
-            // Clamp price to a reasonable minimum
             if (newPrice < 1) newPrice = 1;
 
             return newPrice;
         });
 
-        const nextUpdateIn = Math.random() * 800 + 400; // Update every 0.4-1.2 seconds
+        const nextUpdateIn = Math.random() * 250 + 100;
 
         if (priceUpdateTimeoutRef.current) {
             clearTimeout(priceUpdateTimeoutRef.current);
@@ -300,7 +336,7 @@ export default function TradingDashboard() {
         if (priceUpdateTimeoutRef.current) clearTimeout(priceUpdateTimeoutRef.current);
     };
 
-  }, [username, isLoading, priceRegime]);
+  }, [username, isLoading]);
   
   const portfolioValue = usdBalance + btcBalance * currentPrice;
 
@@ -762,7 +798,7 @@ export default function TradingDashboard() {
                     <Button
                       onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
                       variant="destructive"
-                      disabled={isTrading}
+                      disabled={isTrading || isExtremeMode}
                     >
                       {isTrading ? (
                         <Loader2 className="animate-spin mr-2" />
@@ -870,4 +906,3 @@ export default function TradingDashboard() {
   );
 }
 
-    
