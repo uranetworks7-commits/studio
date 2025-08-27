@@ -91,14 +91,14 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bearish Correction",
     range: [30000, 50000],
     volatility: 2.2,
-    transitionProb: 0.25,
+    transitionProb: 0.2,
     nextRegimes: ["MID"],
   },
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
     volatility: 1.8,
-    transitionProb: 0.25,
+    transitionProb: 0.6,
     nextRegimes: ["LOW", "HIGH"],
     nextRegimeWeights: [0.5, 0.5],
   },
@@ -106,7 +106,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bull Run",
     range: [75000, 120000],
     volatility: 2.5,
-    transitionProb: 0.25,
+    transitionProb: 0.2,
     nextRegimes: ["MID"],
   },
 };
@@ -268,7 +268,7 @@ export default function TradingDashboard() {
       let currentRegimeKey = regimeRef.current;
       const currentRegimeInfo = priceRegimes[currentRegimeKey];
 
-      if (Math.random() < currentRegimeInfo.transitionProb) {
+      if (Math.random() > currentRegimeInfo.transitionProb) {
         const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
 
         if (nextRegimeWeights) {
@@ -308,10 +308,9 @@ export default function TradingDashboard() {
         const pullFactor = 0.0005;
         let pull = (target - prevPrice) * pullFactor * Math.random();
         
-        // Add a "mean reversion" pull towards the mid-range center
         if (currentRegimeKey !== 'MID') {
             const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
-            const meanReversionFactor = 0.0001; // A gentle pull
+            const meanReversionFactor = 0.0002; 
             pull += (midRangeCenter - prevPrice) * meanReversionFactor * Math.random();
         }
 
@@ -584,7 +583,7 @@ export default function TradingDashboard() {
             )} BTC for $${amountInUsd.toFixed(2)}.`,
           });
         } else { // Sell logic
-          // Instantly update balances with sale proceeds and save to DB
+          
           const instantUpdate = {
               usdBalance: result.usdBalance,
               btcBalance: result.btcBalance,
@@ -592,36 +591,31 @@ export default function TradingDashboard() {
           };
           const userRef = ref(db, `users/${username}`);
           await update(userRef, instantUpdate);
-
-          // Update local state instantly with proceeds
+          
           setUsdBalance(result.usdBalance);
           setBtcBalance(result.btcBalance);
           setAvgBtcCost(result.avgBtcCost);
-          
-          // Add P/L to the temporary state
+
           const newPL = todaysPL + result.tradePL;
           setTodaysPL(newPL);
 
           toast({
             title: `Sale Confirmed`,
-            description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L for this trade: $${result.tradePL.toFixed(
-              2
-            )}.`,
+            description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L for this trade: $${result.tradePL.toFixed(2)}.`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
 
-          // After 2 seconds, "withdraw" the P/L and save final state
           setTimeout(async () => {
               const finalUsdBalance = result.usdBalance + newPL;
               
               const finalUpdate = {
                   usdBalance: finalUsdBalance,
-                  todaysPL: 0 // Reset P/L in DB
+                  todaysPL: 0 
               };
               await update(userRef, finalUpdate);
               
               setUsdBalance(finalUsdBalance);
-              setTodaysPL(0); // Reset local P/L state
+              setTodaysPL(0); 
 
               toast({
                   title: 'P/L Realized',
@@ -901,5 +895,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
