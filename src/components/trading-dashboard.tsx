@@ -92,7 +92,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
-    volatility: 2.0, // Increased volatility
+    volatility: 2.2, 
   },
   HIGH: {
     name: "Bull Run",
@@ -175,6 +175,13 @@ export default function TradingDashboard() {
     _setAvgBtcCost(value);
   }
 
+  const form = useForm<TradeFormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      amount: undefined,
+    },
+  });
+
   const [isExtremeMode, setIsExtremeMode] = useState(false);
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
@@ -254,22 +261,22 @@ export default function TradingDashboard() {
       setCurrentPrice((prevPrice) => {
         let currentRegimeKey = regimeRef.current;
         const random = Math.random();
-
+  
         // State machine for regime transitions
         if (currentRegimeKey === 'LOW') {
-            if (random < 0.99) currentRegimeKey = 'MID'; 
+          if (random > 0.01) currentRegimeKey = 'MID'; 
         } else if (currentRegimeKey === 'HIGH') {
-            if (random < 0.99) currentRegimeKey = 'MID';
+          if (random > 0.01) currentRegimeKey = 'MID';
         } else { // currentRegimeKey === 'MID'
-            if (random < 0.10) { 
-              currentRegimeKey = 'LOW';
-            } else if (random > 0.90) { 
-              currentRegimeKey = 'HIGH';
-            }
+          if (random < 0.10) { 
+            currentRegimeKey = 'LOW';
+          } else if (random > 0.90) { 
+            currentRegimeKey = 'HIGH';
+          }
         }
-
+  
         if (currentRegimeKey !== regimeRef.current) {
-            setPriceRegime(currentRegimeKey);
+          setPriceRegime(currentRegimeKey);
         }
         
         const currentRegime = priceRegimes[currentRegimeKey];
@@ -278,26 +285,28 @@ export default function TradingDashboard() {
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         let difficultyFactor = 0;
         let adaptivePull = 0;
-
+  
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.05; 
-            adaptivePull = -difficultyFactor * 0.00005 * prevPrice; 
+          difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.05; 
+          adaptivePull = -difficultyFactor * 0.00002 * prevPrice; 
         }
-
+  
         let pull = 0;
-        const meanReversionFactor = 0.0005; // Reduced mean reversion pull
-        pull = (midRangeCenter - prevPrice) * meanReversionFactor;
+        const meanReversionFactor = 0.0001; 
+        if (currentRegimeKey !== 'MID') {
+            pull = (midRangeCenter - prevPrice) * meanReversionFactor;
+        }
         
         let randomComponent = 0;
         if (currentRegimeKey === 'MID') {
           randomComponent = (Math.random() - 0.5) * prevPrice * currentRegime.volatility * 0.01;
         }
-
+  
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
         if (newPrice < 20000) newPrice = 20000 + (Math.random() * 1000);
         if (newPrice > 150000) newPrice = 150000 - (Math.random() * 1000);
-
+  
         return newPrice;
       });
   
