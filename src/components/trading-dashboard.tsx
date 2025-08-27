@@ -91,8 +91,9 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bearish Correction",
     range: [30000, 50000],
     volatility: 2.2,
-    transitionProb: 0.1,
+    transitionProb: 0.01,
     nextRegimes: ["MID"],
+    nextRegimeWeights: [0.99]
   },
   MID: {
     name: "Market Consolidation",
@@ -106,8 +107,9 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bull Run",
     range: [75000, 120000],
     volatility: 2.5,
-    transitionProb: 0.1,
+    transitionProb: 0.01,
     nextRegimes: ["MID"],
+    nextRegimeWeights: [0.99]
   },
 };
 
@@ -896,5 +898,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
