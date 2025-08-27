@@ -76,28 +76,33 @@ interface PriceData {
 }
 
 type PriceRegimeKey = "LOW" | "MID" | "HIGH";
+type TrendKey = "UP" | "DOWN" | "SIDEWAYS";
 
 type PriceRegime = {
   name: string;
   range: [number, number];
   leaveProb: number;
+  next: PriceRegimeKey | [PriceRegimeKey, PriceRegimeKey];
 };
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: "Bearish Correction",
         range: [35000, 55000],
-        leaveProb: 1.0, // 100% chance to go to MID
+        leaveProb: 1.0, 
+        next: "MID",
     },
     MID: {
         name: "Market Consolidation",
         range: [55000, 75000],
-        leaveProb: 0.01, // 1% chance to leave
+        leaveProb: 0.005, // 0.5% chance to leave
+        next: ["LOW", "HIGH"],
     },
     HIGH: {
         name: "Bull Run",
         range: [75000, 120000],
-        leaveProb: 1.0, // 100% chance to go to MID
+        leaveProb: 1.0, 
+        next: "MID",
     },
 };
 
@@ -190,16 +195,22 @@ export default function TradingDashboard() {
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
 
   const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>("MID");
+  const [trend, setTrend] = useState<TrendKey>("SIDEWAYS");
+  const trendUpdatesLeft = useRef(0);
 
   const { toast } = useToast();
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
 
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const regimeRef = useRef(priceRegime);
+  const trendRef = useRef(trend);
 
   useEffect(() => {
     regimeRef.current = priceRegime;
   }, [priceRegime]);
+   useEffect(() => {
+    trendRef.current = trend;
+  }, [trend]);
 
   const handleUserLogin = useCallback(
     async (name: string): Promise<"success" | "not_found" | "error"> => {
@@ -263,41 +274,69 @@ export default function TradingDashboard() {
         let currentRegimeKey = regimeRef.current;
         const currentRegime = priceRegimes[currentRegimeKey];
         
-        // Regime Transition Logic
+        // --- Regime and Trend Transition Logic ---
         if (Math.random() < currentRegime.leaveProb) {
-            if (currentRegimeKey === 'LOW') {
-                currentRegimeKey = 'MID';
-            } else if (currentRegimeKey === 'HIGH') {
-                currentRegimeKey = 'MID';
-            } else { // MID
-                currentRegimeKey = Math.random() < 0.5 ? 'LOW' : 'HIGH';
+            const nextRegime = currentRegime.next;
+            if (Array.isArray(nextRegime)) {
+                currentRegimeKey = Math.random() < 0.5 ? nextRegime[0] : nextRegime[1];
+            } else {
+                currentRegimeKey = nextRegime;
             }
         }
-  
         if (currentRegimeKey !== regimeRef.current) {
           setPriceRegime(currentRegimeKey);
+          setTrend('SIDEWAYS'); // Reset trend on regime change
+          trendUpdatesLeft.current = 0;
+        }
+
+        // Mid-range trend logic
+        if(currentRegimeKey === 'MID') {
+            if (trendUpdatesLeft.current <= 0) {
+                // Time for a new trend
+                const rand = Math.random();
+                let newTrend: TrendKey;
+                if (rand < 0.4) newTrend = 'UP';
+                else if (rand < 0.8) newTrend = 'DOWN';
+                else newTrend = 'SIDEWAYS';
+                setTrend(newTrend);
+                trendUpdatesLeft.current = 50 + Math.floor(Math.random() * 100); // Trend lasts for 50-150 updates
+            } else {
+                trendUpdatesLeft.current -= 1;
+            }
         }
         
-        // --- Realistic Price Movement Logic ---
+        // --- Price Movement Logic ---
         let newPrice = prevPrice;
         let percentageChange = 0;
         const volatilityRand = Math.random();
 
-        if (volatilityRand < 0.95) { // 95% chance for small change
+        // Base volatility
+        if (volatilityRand < 0.9) { // 90% chance for small change
             percentageChange = (Math.random() - 0.5) * 0.01; // -0.5% to +0.5%
-        } else if (volatilityRand < 0.99) { // 4% chance for larger swing
-            percentageChange = (Math.random() - 0.5) * 0.05; // -2.5% to +2.5%
-        } else { // 1% chance for major swing (quick fall/rise)
+        } else if (volatilityRand < 0.98) { // 8% chance for larger swing
+            percentageChange = (Math.random() - 0.5) * 0.04; // -2% to +2%
+        } else { // 2% chance for major swing
             percentageChange = (Math.random() > 0.5 ? 1 : -1) * (0.02 + Math.random() * 0.03); // +/- 2% to 5%
         }
         
         let changeAmount = prevPrice * percentageChange;
         
-        // Harder mode: downward pressure against unrealized gains
+        // Add trend bias
+        if (regimeRef.current === 'MID') {
+            const currentTrend = trendRef.current;
+            if (currentTrend === 'UP') {
+                changeAmount += prevPrice * 0.0005 * Math.random();
+            } else if (currentTrend === 'DOWN') {
+                changeAmount -= prevPrice * 0.0005 * Math.random();
+            }
+        }
+
+        // Harder difficulty: downward pressure against unrealized gains
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            const difficultyFactor = Math.log1p(unrealizedPL) * 0.001; // Extremely difficult
-            changeAmount -= prevPrice * difficultyFactor * Math.random();
+            const difficultyFactor = 0.01; // EXTREMELY difficult
+            const pull = Math.log1p(unrealizedPL) * difficultyFactor;
+            changeAmount -= prevPrice * (pull / 1000) * Math.random();
         }
         
         newPrice += changeAmount;
@@ -637,7 +676,7 @@ export default function TradingDashboard() {
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
             <span className="font-bold text-foreground">
-              {priceRegimes[priceRegime].name}
+              {priceRegime === 'MID' ? `${trendRef.current} Trend` : priceRegimes[priceRegime].name}
             </span>
           </div>
         </div>
