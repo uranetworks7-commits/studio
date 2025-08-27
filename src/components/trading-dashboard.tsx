@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDown,
   ArrowUp,
-  Battery,
   Bitcoin,
   Info,
   Landmark,
@@ -315,7 +314,7 @@ export default function TradingDashboard() {
             return newPrice;
         });
 
-        const nextUpdateIn = Math.random() * 500 + 500; // Slower update speed: 500ms-1000ms
+        const nextUpdateIn = Math.random() * 800 + 800; // Slower update speed: 800ms-1600ms
 
         if (priceUpdateTimeoutRef.current) {
             clearTimeout(priceUpdateTimeoutRef.current);
@@ -697,7 +696,22 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
-                        <Battery className="h-5 w-5 text-primary" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-5 w-5 text-primary"
+                        >
+                          <path d="M12 2L2 22h20L12 2z" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.1)" />
+                          <path d="M10 18c-1.5-1.5-2-3-2-5 0-4 4-6 6-6s6 2 6 6c0 2-.5 3.5-2 5" stroke="hsl(var(--chart-1))" fill="none"/>
+                          <path d="M12 16a4 4 0 00-4-4" stroke="hsl(var(--chart-1))" fill="none"/>
+                        </svg>
                       </>
                     )}
                   </CardTitle>
