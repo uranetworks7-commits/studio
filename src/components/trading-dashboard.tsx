@@ -299,26 +299,31 @@ export default function TradingDashboard() {
         let difficultyFactor = 0;
         let adaptivePull = 0;
 
-        // Apply more difficulty when user has unrealized profits
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.5; // More sensitive to smaller gains
-            volatility *= (1 + Math.min(difficultyFactor, 3.5)); // Increased volatility cap
-            adaptivePull = -difficultyFactor * 0.02 * prevPrice * Math.random(); // Stronger downward pull
+            difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.5;
+            volatility *= (1 + Math.min(difficultyFactor, 3.5)); 
+            adaptivePull = -difficultyFactor * 0.02 * prevPrice * Math.random(); 
         }
 
         const pullFactor = 0.0005;
-        const pull = (target - prevPrice) * pullFactor * Math.random();
+        let pull = (target - prevPrice) * pullFactor * Math.random();
+        
+        // Add a "mean reversion" pull towards the mid-range center
+        if (currentRegimeKey !== 'MID') {
+            const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
+            const meanReversionFactor = 0.0001; // A gentle pull
+            pull += (midRangeCenter - prevPrice) * meanReversionFactor * Math.random();
+        }
 
         const randomComponent =
           (Math.random() - 0.5) * prevPrice * volatility * 0.05;
 
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
-        // Make profits harder to get (more loss bias)
         if (randomComponent > 0) {
-            newPrice -= randomComponent * 0.55; // Significantly dampen upward movements
+            newPrice -= randomComponent * 0.55; 
         } else {
-            newPrice += randomComponent * 0.2; // Slightly amplify downward movements
+            newPrice += randomComponent * 0.2;
         }
 
         if (newPrice > max) {
@@ -329,12 +334,12 @@ export default function TradingDashboard() {
         }
 
         if (newPrice < 1000) newPrice = 1000;
-        if (newPrice > 250000) newPrice = 250000; // Cap price to avoid unrealistic scenarios
+        if (newPrice > 250000) newPrice = 250000;
 
         return newPrice;
       });
 
-      const nextUpdateIn = 2000 + Math.random() * 1500; // Slower updates
+      const nextUpdateIn = 2000 + Math.random() * 1500;
 
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
@@ -579,7 +584,7 @@ export default function TradingDashboard() {
             )} BTC for $${amountInUsd.toFixed(2)}.`,
           });
         } else { // Sell logic
-          // Instantly update balances and save to DB
+          // Instantly update balances with sale proceeds and save to DB
           const instantUpdate = {
               usdBalance: result.usdBalance,
               btcBalance: result.btcBalance,
@@ -588,7 +593,7 @@ export default function TradingDashboard() {
           const userRef = ref(db, `users/${username}`);
           await update(userRef, instantUpdate);
 
-          // Update local state
+          // Update local state instantly with proceeds
           setUsdBalance(result.usdBalance);
           setBtcBalance(result.btcBalance);
           setAvgBtcCost(result.avgBtcCost);
@@ -599,9 +604,9 @@ export default function TradingDashboard() {
 
           toast({
             title: `Sale Confirmed`,
-            description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L: $${result.tradePL.toFixed(
+            description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L for this trade: $${result.tradePL.toFixed(
               2
-            )}. Finalizing...`,
+            )}.`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
 
