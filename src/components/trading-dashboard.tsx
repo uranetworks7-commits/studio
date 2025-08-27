@@ -81,39 +81,23 @@ type PriceRegime = {
   name: string;
   range: [number, number];
   volatility: number;
-  midToLow: number;
-  midToHigh: number;
-  lowToMid: number;
-  highToMid: number;
 };
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: "Bearish Correction",
         range: [30000, 50000],
-        volatility: 1.0,
-        lowToMid: 1.0, // 100% chance to go to MID
-        midToLow: 0,
-        midToHigh: 0,
-        highToMid: 0,
+        volatility: 0,
     },
     MID: {
         name: "Market Consolidation",
         range: [50000, 75000],
-        volatility: 3.5,
-        midToLow: 0.10, // 10% chance
-        midToHigh: 0.10, // 10% chance
-        lowToMid: 0,
-        highToMid: 0,
+        volatility: 0.15,
     },
     HIGH: {
         name: "Bull Run",
         range: [75000, 120000],
-        volatility: 1.0,
-        highToMid: 0.99, // 99% chance
-        midToLow: 0,
-        midToHigh: 0,
-        lowToMid: 0,
+        volatility: 0,
     },
 };
 
@@ -280,19 +264,15 @@ export default function TradingDashboard() {
   
         // State machine for regime transitions
         if (currentRegimeKey === 'LOW') {
-          if (random < priceRegimes.LOW.lowToMid) {
-             currentRegimeKey = 'MID';
-          }
+            if (random < 0.99) currentRegimeKey = 'MID';
         } else if (currentRegimeKey === 'HIGH') {
-           if (random < priceRegimes.HIGH.highToMid) {
-             currentRegimeKey = 'MID';
-           }
-        } else { // currentRegimeKey === 'MID'
-          if (random < priceRegimes.MID.midToLow) { 
-            currentRegimeKey = 'LOW';
-          } else if (random < priceRegimes.MID.midToLow + priceRegimes.MID.midToHigh) {
-            currentRegimeKey = 'HIGH';
-          }
+            if (random < 0.99) currentRegimeKey = 'MID';
+        } else { // MID
+            if (random < 0.10) { 
+                currentRegimeKey = 'LOW';
+            } else if (random < 0.20) {
+                currentRegimeKey = 'HIGH';
+            }
         }
   
         if (currentRegimeKey !== regimeRef.current) {
@@ -300,31 +280,47 @@ export default function TradingDashboard() {
         }
         
         const currentRegime = priceRegimes[currentRegimeKey];
-        
-        // Apply volatility only in MID range
-        let randomComponent = 0;
+        let newPrice = prevPrice;
+
+        const [minRange, maxRange] = currentRegime.range;
+        const targetMin = 60000;
+        const targetMax = 71000;
+        const targetCenter = (targetMin + targetMax) / 2;
+
+        let gravity = 0;
         if (currentRegimeKey === 'MID') {
-          randomComponent = (Math.random() - 0.5) * prevPrice * currentRegime.volatility * 0.01;
+            // "Gravity Well" logic: gently pull towards 60k-71k
+            if (newPrice < targetMin) {
+                gravity = (targetCenter - newPrice) * 0.005; // Weaker pull up
+            } else if (newPrice > targetMax) {
+                gravity = (targetCenter - newPrice) * 0.01; // Stronger pull down
+            }
+            
+            // Add volatility only in MID range
+            const volatilityComponent = (Math.random() - 0.5) * prevPrice * currentRegime.volatility * 0.01;
+            newPrice += volatilityComponent;
         }
 
+        newPrice += gravity;
+        
         // Harder mode: downward pressure against unrealized gains
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         let difficultyFactor = 0;
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-          difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.05 * (Math.random() - 0.3); // more random
+          difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.05 * (Math.random()); 
         }
-    
-        let newPrice = prevPrice + randomComponent - difficultyFactor;
+        newPrice -= difficultyFactor;
 
-        // Nudge price back into its range if it drifts out
-        const [min, max] = currentRegime.range;
-        if (newPrice < min) {
-          newPrice = min + (Math.random() * (min*0.01));
-        } else if (newPrice > max) {
-          newPrice = max - (Math.random() * (max*0.01));
+        // Nudge price back towards its range if it drifts out
+        const pullToCenter = (minRange + maxRange) / 2;
+        if (newPrice < minRange) {
+          newPrice += (pullToCenter - newPrice) * 0.1;
+        } else if (newPrice > maxRange) {
+          newPrice += (pullToCenter - newPrice) * 0.1;
         }
 
-        return newPrice;
+        // Clamp to absolute min/max to prevent total collapse/explosion
+        return Math.max(minRange * 0.95, Math.min(maxRange * 1.05, newPrice));
       });
   
       const nextUpdateIn = 1500 + Math.random() * 1000;
@@ -885,3 +881,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
