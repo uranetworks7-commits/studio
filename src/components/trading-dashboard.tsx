@@ -79,9 +79,6 @@ type PriceRegime = {
   name: string;
   range: [number, number];
   volatility: number;
-  transitionProb: number;
-  nextRegimes: PriceRegimeKey[];
-  nextRegimeWeights?: number[];
 };
 
 type PriceRegimeKey = "LOW" | "MID" | "HIGH";
@@ -91,25 +88,16 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bearish Correction",
     range: [30000, 50000],
     volatility: 2.2,
-    transitionProb: 0.01,
-    nextRegimes: ["MID"],
-    nextRegimeWeights: [0.99]
   },
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
     volatility: 1.8,
-    transitionProb: 0.8,
-    nextRegimes: ["LOW", "HIGH"],
-    nextRegimeWeights: [0.5, 0.5],
   },
   HIGH: {
     name: "Bull Run",
     range: [75000, 120000],
     volatility: 2.5,
-    transitionProb: 0.01,
-    nextRegimes: ["MID"],
-    nextRegimeWeights: [0.99]
   },
 };
 
@@ -269,27 +257,28 @@ export default function TradingDashboard() {
 
     const updatePrice = () => {
       let currentRegimeKey = regimeRef.current;
-      const currentRegimeInfo = priceRegimes[currentRegimeKey];
       
-      if (Math.random() > currentRegimeInfo.transitionProb) {
-        const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
-        
-        if (nextRegimeWeights) {
-            const random = Math.random();
-            let cumulativeWeight = 0;
-            for (let i = 0; i < nextRegimeWeights.length; i++) {
-                cumulativeWeight += nextRegimeWeights[i];
-                if (random < cumulativeWeight) {
-                    currentRegimeKey = nextRegimes[i];
-                    break;
-                }
-            }
-        } else {
-            currentRegimeKey = nextRegimes[Math.floor(Math.random() * nextRegimes.length)];
+      const random = Math.random();
+      if (currentRegimeKey === 'MID') {
+        if (random < 0.10) { // 10% chance to go to LOW
+          currentRegimeKey = 'LOW';
+        } else if (random < 0.20) { // 10% chance to go to HIGH
+          currentRegimeKey = 'HIGH';
         }
-        setPriceRegime(currentRegimeKey);
+        // 80% chance to stay in MID
+      } else if (currentRegimeKey === 'LOW') {
+        if (random < 0.99) { // 99% chance to go to MID
+          currentRegimeKey = 'MID';
+        }
+        // 1% chance to stay in LOW
+      } else if (currentRegimeKey === 'HIGH') {
+        if (random < 0.99) { // 99% chance to go to MID
+          currentRegimeKey = 'MID';
+        }
+        // 1% chance to stay in HIGH
       }
-
+      setPriceRegime(currentRegimeKey);
+      
       const currentRegime = priceRegimes[currentRegimeKey];
 
       setCurrentPrice((prevPrice) => {
@@ -302,9 +291,9 @@ export default function TradingDashboard() {
         let adaptivePull = 0;
 
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 50) * 0.7; // increased sensitivity
-            volatility *= (1 + Math.min(difficultyFactor, 4.0)); // increased max effect
-            adaptivePull = -difficultyFactor * 0.025 * prevPrice * Math.random(); // stronger pull
+            difficultyFactor = Math.log1p(unrealizedPL / 50) * 0.9;
+            volatility *= (1 + Math.min(difficultyFactor, 4.5));
+            adaptivePull = -difficultyFactor * 0.03 * prevPrice * Math.random();
         }
 
         const pullFactor = 0.0005;
@@ -312,7 +301,7 @@ export default function TradingDashboard() {
         
         if (currentRegimeKey !== 'MID') {
             const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
-            const meanReversionFactor = 0.0003; // stronger pull to mid
+            const meanReversionFactor = 0.0008;
             pull += (midRangeCenter - prevPrice) * meanReversionFactor * Math.random();
         }
 
@@ -322,9 +311,9 @@ export default function TradingDashboard() {
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
         if (randomComponent > 0) {
-            newPrice -= randomComponent * 0.6; // Higher downward bias
+            newPrice -= randomComponent * 0.8;
         } else {
-            newPrice += randomComponent * 0.1; // Weaker upward bias
+            newPrice += randomComponent * 0.2;
         }
 
         if (newPrice > max) {
@@ -898,3 +887,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
