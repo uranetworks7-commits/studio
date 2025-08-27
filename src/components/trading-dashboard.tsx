@@ -254,91 +254,87 @@ export default function TradingDashboard() {
 
   useEffect(() => {
     if (!username || isLoading) return;
-
+  
     const updatePrice = () => {
       let currentRegimeKey = regimeRef.current;
-      
       const random = Math.random();
-      if (currentRegimeKey === 'MID') {
-        if (random < 0.10) { // 10% chance to go to LOW
+  
+      // State machine for regime transitions
+      if (currentRegimeKey === 'LOW') {
+        if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
+      } else if (currentRegimeKey === 'HIGH') {
+        if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
+      } else { // currentRegimeKey === 'MID'
+        if (random < 0.10) { // 10% chance to move to LOW
           currentRegimeKey = 'LOW';
-        } else if (random < 0.20) { // 10% chance to go to HIGH
+        } else if (random < 0.20) { // 10% chance to move to HIGH (0.10 + 0.10)
           currentRegimeKey = 'HIGH';
         }
         // 80% chance to stay in MID
-      } else if (currentRegimeKey === 'LOW') {
-        if (random < 0.99) { // 99% chance to go to MID
-          currentRegimeKey = 'MID';
-        }
-        // 1% chance to stay in LOW
-      } else if (currentRegimeKey === 'HIGH') {
-        if (random < 0.99) { // 99% chance to go to MID
-          currentRegimeKey = 'MID';
-        }
-        // 1% chance to stay in HIGH
       }
-      setPriceRegime(currentRegimeKey);
+  
+      if (currentRegimeKey !== regimeRef.current) {
+        setPriceRegime(currentRegimeKey);
+      }
       
       const currentRegime = priceRegimes[currentRegimeKey];
-
+  
       setCurrentPrice((prevPrice) => {
         const [min, max] = currentRegime.range;
         const target = (min + max) / 2;
         let volatility = currentRegime.volatility;
-
+  
+        // More punishing difficulty based on unrealized P/L
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         let difficultyFactor = 0;
         let adaptivePull = 0;
-
+  
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 50) * 0.9;
-            volatility *= (1 + Math.min(difficultyFactor, 4.5));
-            adaptivePull = -difficultyFactor * 0.03 * prevPrice * Math.random();
+            difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.5; // Reduced intensity
+            volatility *= (1 + Math.min(difficultyFactor, 2.0)); // Capped volatility increase
+            adaptivePull = -difficultyFactor * 0.005 * prevPrice * Math.random(); // Reduced pull
         }
-
-        const pullFactor = 0.0005;
+  
+        // Gentler mean reversion towards the middle of the current regime
+        const pullFactor = 0.001; 
         let pull = (target - prevPrice) * pullFactor * Math.random();
         
+        // Add a gentle pull towards the absolute center of the MID range if in LOW or HIGH
         if (currentRegimeKey !== 'MID') {
             const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
-            const meanReversionFactor = 0.0008;
+            const meanReversionFactor = 0.0015; // Slightly stronger pull to get out of extremes
             pull += (midRangeCenter - prevPrice) * meanReversionFactor * Math.random();
         }
-
-        const randomComponent =
-          (Math.random() - 0.5) * prevPrice * volatility * 0.05;
-
+  
+        const randomComponent = (Math.random() - 0.5) * prevPrice * volatility * 0.01;
+  
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
-        if (randomComponent > 0) {
-            newPrice -= randomComponent * 0.8;
-        } else {
-            newPrice += randomComponent * 0.2;
-        }
-
+        // Boundary checks to keep price within the regime's range, with some softness
         if (newPrice > max) {
           newPrice -= (newPrice - max) * 0.1;
         }
         if (newPrice < min) {
           newPrice += (min - newPrice) * 0.1;
         }
-
+  
+        // Absolute safety nets
         if (newPrice < 1000) newPrice = 1000;
         if (newPrice > 250000) newPrice = 250000;
-
+  
         return newPrice;
       });
-
-      const nextUpdateIn = 2000 + Math.random() * 1500;
-
+  
+      const nextUpdateIn = 1500 + Math.random() * 1000;
+  
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
       }
       priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
     };
-
+  
     updatePrice();
-
+  
     return () => {
       if (priceUpdateTimeoutRef.current)
         clearTimeout(priceUpdateTimeoutRef.current);
