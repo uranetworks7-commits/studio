@@ -91,14 +91,14 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bearish Correction",
     range: [30000, 50000],
     volatility: 2.2,
-    transitionProb: 0.2,
+    transitionProb: 0.15,
     nextRegimes: ["MID"],
   },
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
     volatility: 1.8,
-    transitionProb: 0.6,
+    transitionProb: 0.7,
     nextRegimes: ["LOW", "HIGH"],
     nextRegimeWeights: [0.5, 0.5],
   },
@@ -106,7 +106,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     name: "Bull Run",
     range: [75000, 120000],
     volatility: 2.5,
-    transitionProb: 0.2,
+    transitionProb: 0.1,
     nextRegimes: ["MID"],
   },
 };
@@ -152,7 +152,7 @@ function calculateTrade(
     const tradePL = proceedsFromSale - costOfBtcSold;
 
     result.btcBalance -= btcToSell;
-    result.usdBalance += proceedsFromSale; // Instantly add sale proceeds
+    result.usdBalance += proceedsFromSale; 
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
     result.btcAmountTraded = btcToSell;
@@ -606,7 +606,8 @@ export default function TradingDashboard() {
           });
 
           setTimeout(async () => {
-              const finalUsdBalance = result.usdBalance + newPL;
+              const currentPL = newPL;
+              const finalUsdBalance = result.usdBalance + currentPL;
               
               const finalUpdate = {
                   usdBalance: finalUsdBalance,
@@ -619,7 +620,7 @@ export default function TradingDashboard() {
 
               toast({
                   title: 'P/L Realized',
-                  description: `$${newPL.toFixed(2)} has been settled to your USD balance.`
+                  description: `$${currentPL.toFixed(2)} has been settled to your USD balance.`
               });
           }, 2000);
         }
@@ -895,3 +896,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
