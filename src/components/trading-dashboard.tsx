@@ -92,7 +92,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
-    volatility: 2.2, 
+    volatility: 2.5, 
   },
   HIGH: {
     name: "Bull Run",
@@ -264,13 +264,13 @@ export default function TradingDashboard() {
   
         // State machine for regime transitions
         if (currentRegimeKey === 'LOW') {
-          if (random > 0.01) currentRegimeKey = 'MID'; 
+          currentRegimeKey = 'MID'; // 100% chance to move to MID
         } else if (currentRegimeKey === 'HIGH') {
-          if (random > 0.01) currentRegimeKey = 'MID';
+          if (random > 0.01) currentRegimeKey = 'MID'; // 99% chance to move to MID
         } else { // currentRegimeKey === 'MID'
-          if (random < 0.10) { 
+          if (random < 0.10) { // 10% chance to move to LOW
             currentRegimeKey = 'LOW';
-          } else if (random > 0.90) { 
+          } else if (random > 0.90) { // 10% chance to move to HIGH
             currentRegimeKey = 'HIGH';
           }
         }
@@ -288,11 +288,11 @@ export default function TradingDashboard() {
   
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
           difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.05; 
-          adaptivePull = -difficultyFactor * 0.00002 * prevPrice; 
+          adaptivePull = -difficultyFactor * 0.000005 * prevPrice; 
         }
   
         let pull = 0;
-        const meanReversionFactor = 0.0001; 
+        const meanReversionFactor = 0.00001; 
         if (currentRegimeKey !== 'MID') {
             pull = (midRangeCenter - prevPrice) * meanReversionFactor;
         }
