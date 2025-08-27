@@ -316,7 +316,7 @@ export default function TradingDashboard() {
             volatility *= (1 + Math.min(difficultyFactor, 1.5)); // Cap volatility increase
 
             // Add downward pressure proportional to gains
-            adaptivePull = -difficultyFactor * 0.0001 * prevPrice;
+            adaptivePull = -difficultyFactor * 0.0005 * prevPrice; // Increased pull for heavy loss potential
         }
 
         // Strong pull towards the middle of the range to keep it centered
