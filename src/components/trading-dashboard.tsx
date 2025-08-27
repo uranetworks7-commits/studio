@@ -750,9 +750,7 @@ export default function TradingDashboard() {
                               disabled={isTrading}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                field.onChange(
-                                  value === "" ? undefined : Number(value)
-                                );
+                                field.onChange(value === "" ? "" : Number(value));
                               }}
                               value={field.value ?? ""}
                             />
@@ -897,5 +895,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
