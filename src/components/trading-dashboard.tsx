@@ -301,9 +301,9 @@ export default function TradingDashboard() {
 
         // Apply more difficulty when user has unrealized profits
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 500) * 0.25; // More sensitive to smaller gains
-            volatility *= (1 + Math.min(difficultyFactor, 2.5)); // Increased volatility cap
-            adaptivePull = -difficultyFactor * 0.01 * prevPrice * Math.random(); // Stronger downward pull
+            difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.5; // More sensitive to smaller gains
+            volatility *= (1 + Math.min(difficultyFactor, 3.5)); // Increased volatility cap
+            adaptivePull = -difficultyFactor * 0.02 * prevPrice * Math.random(); // Stronger downward pull
         }
 
         const pullFactor = 0.0005;
@@ -316,9 +316,9 @@ export default function TradingDashboard() {
         
         // Make profits harder to get (more loss bias)
         if (randomComponent > 0) {
-            newPrice -= randomComponent * 0.45; // Significantly dampen upward movements
+            newPrice -= randomComponent * 0.55; // Significantly dampen upward movements
         } else {
-            newPrice += randomComponent * 0.1; // Slightly amplify downward movements
+            newPrice += randomComponent * 0.2; // Slightly amplify downward movements
         }
 
         if (newPrice > max) {
@@ -329,6 +329,7 @@ export default function TradingDashboard() {
         }
 
         if (newPrice < 1000) newPrice = 1000;
+        if (newPrice > 250000) newPrice = 250000; // Cap price to avoid unrealistic scenarios
 
         return newPrice;
       });
@@ -750,7 +751,7 @@ export default function TradingDashboard() {
                               disabled={isTrading}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                field.onChange(value === "" ? "" : Number(value));
+                                field.onChange(value === "" ? undefined : Number(value));
                               }}
                               value={field.value ?? ""}
                             />
@@ -895,3 +896,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
