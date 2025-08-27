@@ -5,8 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDown,
   ArrowUp,
-  Battery,
   Bitcoin,
+  ArrowRightLeft,
   Info,
   Landmark,
   Loader2,
@@ -152,6 +152,7 @@ function calculateTrade(
     const tradePL = proceedsFromSale - costOfBtcSold;
 
     result.btcBalance -= btcToSell;
+    result.usdBalance += proceedsFromSale; // Instantly add sale proceeds
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
     result.btcAmountTraded = btcToSell;
@@ -299,9 +300,9 @@ export default function TradingDashboard() {
         let adaptivePull = 0;
 
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.1; 
-            volatility *= (1 + Math.min(difficultyFactor, 1.5)); 
-            adaptivePull = -difficultyFactor * 0.005 * prevPrice; 
+            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.15; 
+            volatility *= (1 + Math.min(difficultyFactor, 2.0)); 
+            adaptivePull = -difficultyFactor * 0.008 * prevPrice * Math.random();
         }
 
         const pullFactor = 0.0005;
@@ -311,6 +312,11 @@ export default function TradingDashboard() {
           (Math.random() - 0.5) * prevPrice * volatility * 0.05;
 
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
+        
+        // Make profits harder to get
+        if (randomComponent > 0) {
+            newPrice -= randomComponent * 0.3; // Dampen upward movements
+        }
 
         if (newPrice > max) {
           newPrice -= (newPrice - max) * 0.1;
@@ -569,44 +575,48 @@ export default function TradingDashboard() {
             )} BTC for $${amountInUsd.toFixed(2)}.`,
           });
         } else { // Sell logic
-          // First, update the non-balance values
-          const initialUpdate = {
+          // Instantly update balances and save to DB
+          const instantUpdate = {
+              usdBalance: result.usdBalance,
               btcBalance: result.btcBalance,
               avgBtcCost: result.avgBtcCost,
-              todaysPL: todaysPL + result.tradePL,
           };
           const userRef = ref(db, `users/${username}`);
-          await update(userRef, initialUpdate);
+          await update(userRef, instantUpdate);
 
+          // Update local state
+          setUsdBalance(result.usdBalance);
           setBtcBalance(result.btcBalance);
           setAvgBtcCost(result.avgBtcCost);
-          setTodaysPL(todaysPL + result.tradePL);
+          
+          // Add P/L to the temporary state
+          const newPL = todaysPL + result.tradePL;
+          setTodaysPL(newPL);
 
-           toast({
+          toast({
             title: `Sale Confirmed`,
-            description: `Sold ${result.btcAmountTraded.toFixed(
-              8
-            )} BTC. P/L: $${result.tradePL.toFixed(
+            description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L: $${result.tradePL.toFixed(
               2
-            )}. Withdrawing funds...`,
+            )}. Finalizing...`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
 
-          // Wait 2 seconds before "withdrawing"
+          // After 2 seconds, "withdraw" the P/L and save final state
           setTimeout(async () => {
-              const newUsdBalance = usdBalance + result.saleProceeds;
+              const finalUsdBalance = result.usdBalance + newPL;
+              
               const finalUpdate = {
-                  usdBalance: newUsdBalance,
-                  todaysPL: 0
+                  usdBalance: finalUsdBalance,
+                  todaysPL: 0 // Reset P/L in DB
               };
               await update(userRef, finalUpdate);
-
-              setUsdBalance(newUsdBalance);
-              setTodaysPL(0);
+              
+              setUsdBalance(finalUsdBalance);
+              setTodaysPL(0); // Reset local P/L state
 
               toast({
-                  title: 'Withdrawal Complete',
-                  description: `+$${result.saleProceeds.toFixed(2)} added to your USD balance.`
+                  title: 'P/L Realized',
+                  description: `$${newPL.toFixed(2)} has been settled to your USD balance.`
               });
           }, 2000);
         }
@@ -689,13 +699,25 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
-                        <Battery className="h-5 w-5 text-green-500" />
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" />
+                          <path d="M2 17l10 5 10-5" />
+                          <path d="M2 12l10 5 10-5" />
+                          <path d="M10 20v-5.5" stroke="hsl(var(--primary))" />
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="hsl(var(--primary))" fillOpacity="0.2" />
+                          <path
+                            className="text-green-500"
+                            stroke="currentColor"
+                            fill="currentColor"
+                            d="M11 14.5c0 .8.7 1.5 1.5 1.5.8 0 1.5-.7 1.5-1.5 0-.6-.4-1.2-1-1.4.6-.2 1-.7 1-1.4 0-.8-.7-1.5-1.5-1.5-.8 0-1.5.7-1.5 1.5 0 .6.4 1.2 1 1.4-.6.2-1 .7-1 1.4z"
+                           />
+                        </svg>
                       </>
                     )}
                   </CardTitle>
                   <CardDescription>
                     {isExtremeMode
-                      ? "Enter Heavy Ammount"
+                      ? "Enter Heavy Ammount."
                       : "Buy or sell Bitcoin."}
                   </CardDescription>
                 </div>
@@ -854,19 +876,14 @@ export default function TradingDashboard() {
                         <>
                         <Separator />
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Today's P/L</span>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <ArrowRightLeft className="h-4 w-4" />
+                                <span>Today's P/L</span>
+                            </div>
                             <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
                                 ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
-                         <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            disabled
-                        >
-                            Withdrawal is Automatic
-                        </Button>
                         </>
                     )}
                   </>
