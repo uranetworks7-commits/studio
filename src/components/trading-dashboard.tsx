@@ -87,7 +87,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   LOW: {
     name: "Bearish Correction",
     range: [30000, 50000],
-    volatility: 2.2,
+    volatility: 1.0,
   },
   MID: {
     name: "Market Consolidation",
@@ -97,7 +97,7 @@ const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   HIGH: {
     name: "Bull Run",
     range: [75000, 120000],
-    volatility: 2.5,
+    volatility: 1.0,
   },
 };
 
@@ -256,75 +256,58 @@ export default function TradingDashboard() {
     if (!username || isLoading) return;
   
     const updatePrice = () => {
-      let currentRegimeKey = regimeRef.current;
-      const random = Math.random();
-  
-      // State machine for regime transitions
-      if (currentRegimeKey === 'LOW') {
-        if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
-      } else if (currentRegimeKey === 'HIGH') {
-        if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
-      } else { // currentRegimeKey === 'MID'
-        if (random < 0.10) { // 10% chance to move to LOW
-          currentRegimeKey = 'LOW';
-        } else if (random > 0.90) { // 10% chance to move to HIGH
-          currentRegimeKey = 'HIGH';
-        }
-        // 80% chance to stay in MID
-      }
-  
-      if (currentRegimeKey !== regimeRef.current) {
-        setPriceRegime(currentRegimeKey);
-      }
-      
-      const currentRegime = priceRegimes[currentRegimeKey];
-  
       setCurrentPrice((prevPrice) => {
-        const [min, max] = currentRegime.range;
-        const target = (min + max) / 2;
-        let volatility = currentRegime.volatility;
-  
+        let currentRegimeKey = regimeRef.current;
+        const random = Math.random();
+
+        // State machine for regime transitions
+        if (currentRegimeKey === 'LOW') {
+            if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
+        } else if (currentRegimeKey === 'HIGH') {
+            if (random < 0.99) currentRegimeKey = 'MID'; // 99% chance to move to MID
+        } else { // currentRegimeKey === 'MID'
+            if (random < 0.10) { // 10% chance to move to LOW
+            currentRegimeKey = 'LOW';
+            } else if (random > 0.90) { // 10% chance to move to HIGH
+            currentRegimeKey = 'HIGH';
+            }
+            // 80% chance to stay in MID
+        }
+
+        if (currentRegimeKey !== regimeRef.current) {
+            setPriceRegime(currentRegimeKey);
+        }
+        
+        const currentRegime = priceRegimes[currentRegimeKey];
+        const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
+    
         // More punishing difficulty based on unrealized P/L
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         let difficultyFactor = 0;
         let adaptivePull = 0;
-  
+
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 500) * 0.1; // Reduced intensity
-            volatility *= (1 + Math.min(difficultyFactor, 1.0)); // Capped volatility increase
-            adaptivePull = -difficultyFactor * 0.0005 * prevPrice * Math.random(); // Reduced pull
+            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.05; // Reduced intensity
+            adaptivePull = -difficultyFactor * 0.0001 * prevPrice; // Very subtle pull
         }
-  
-        // Mean reversion towards the middle of the current regime
-        const pullFactor = 0.001; 
-        let pull = (target - prevPrice) * pullFactor * Math.random();
+
+        let pull = 0;
+        // Always pull towards the absolute center of the MID range
+        const meanReversionFactor = 0.0025; 
+        pull = (midRangeCenter - prevPrice) * meanReversionFactor;
         
-        // Add a gentle pull towards the absolute center of the MID range if in LOW or HIGH
-        if (currentRegimeKey !== 'MID') {
-            const midRangeCenter = (priceRegimes.MID.range[0] + priceRegimes.MID.range[1]) / 2;
-            const meanReversionFactor = 0.002; // Slightly stronger pull to get out of extremes
-            pull += (midRangeCenter - prevPrice) * meanReversionFactor * Math.random();
-        }
-  
         let randomComponent = 0;
+        // Only add random volatility when in the MID range
         if (currentRegimeKey === 'MID') {
-          randomComponent = (Math.random() - 0.5) * prevPrice * volatility * 0.01;
+          randomComponent = (Math.random() - 0.5) * prevPrice * currentRegime.volatility * 0.01;
         }
-  
+
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
-        // Boundary checks to keep price within the regime's range, with some softness
-        if (newPrice > max) {
-          newPrice -= (newPrice - max) * 0.1;
-        }
-        if (newPrice < min) {
-          newPrice += (min - newPrice) * 0.1;
-        }
-  
-        // Absolute safety nets
-        if (newPrice < 1000) newPrice = 1000;
-        if (newPrice > 250000) newPrice = 250000;
-  
+        // Boundary checks to keep price within a reasonable absolute range
+        if (newPrice < 20000) newPrice = 20000 + (Math.random() * 1000);
+        if (newPrice > 150000) newPrice = 150000 - (Math.random() * 1000);
+
         return newPrice;
       });
   
