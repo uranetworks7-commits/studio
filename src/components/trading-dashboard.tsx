@@ -174,8 +174,21 @@ export default function TradingDashboard() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   const [usdBalance, setUsdBalance] = useState<number>(1000);
-  const [btcBalance, setBtcBalance] = useState<number>(0);
-  const [avgBtcCost, setAvgBtcCost] = useState<number>(0);
+  const btcBalanceRef = useRef<number>(0); // Use ref for latest value in updates
+  const [btcBalance, _setBtcBalance] = useState<number>(0);
+  const avgBtcCostRef = useRef<number>(0);
+  const [avgBtcCost, _setAvgBtcCost] = useState<number>(0);
+  
+  const setBtcBalance = (value: number) => {
+    btcBalanceRef.current = value;
+    _setBtcBalance(value);
+  }
+  const setAvgBtcCost = (value: number) => {
+    avgBtcCostRef.current = value;
+    _setAvgBtcCost(value);
+  }
+
+
   const [dailyGain, setDailyGain] = useState(0);
   const [dailyLoss, setDailyLoss] = useState(0);
   const [isExtremeMode, setIsExtremeMode] = useState(false);
@@ -290,7 +303,21 @@ export default function TradingDashboard() {
       setCurrentPrice((prevPrice) => {
         const [min, max] = currentRegime.range;
         const target = (min + max) / 2;
-        const volatility = currentRegime.volatility;
+        let volatility = currentRegime.volatility;
+
+        // --- Adaptive Difficulty ---
+        const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
+        let difficultyFactor = 0;
+        let adaptivePull = 0;
+
+        if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
+            // Increase difficulty when user has unrealized gains
+            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.1; // Log scale to temper the effect
+            volatility *= (1 + Math.min(difficultyFactor, 1.5)); // Cap volatility increase
+
+            // Add downward pressure proportional to gains
+            adaptivePull = -difficultyFactor * 0.0001 * prevPrice;
+        }
 
         // Strong pull towards the middle of the range to keep it centered
         const pullFactor = 0.0005;
@@ -300,7 +327,7 @@ export default function TradingDashboard() {
         const randomComponent =
           (Math.random() - 0.5) * prevPrice * volatility * 0.05;
 
-        let newPrice = prevPrice + randomComponent + pull;
+        let newPrice = prevPrice + randomComponent + pull + adaptivePull;
 
         // Push away from boundaries to avoid getting stuck
         if (newPrice > max) {
@@ -916,3 +943,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
