@@ -66,7 +66,7 @@ export default function AboutPage() {
       
       <Card className="z-20 w-full max-w-2xl bg-card/80 border-border/50">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-headline text-primary">About URA Trade Pro</CardTitle>
+          <CardTitle className="text-3xl font-headline text-primary">About URA Trade</CardTitle>
           <div className="absolute top-4 right-4">
             <Link href="/" passHref>
               <Button variant="ghost" size="icon">
