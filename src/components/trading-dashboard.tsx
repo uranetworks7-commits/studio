@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowDown,
   ArrowUp,
+  Battery,
   Bitcoin,
   Info,
   Landmark,
@@ -74,39 +75,39 @@ interface PriceData {
 }
 
 type PriceRegime = {
-    name: string;
-    range: [number, number]; 
-    volatility: number; 
-    transitionProb: number; 
-    nextRegimes: PriceRegimeKey[];
-    nextRegimeWeights?: number[];
+  name: string;
+  range: [number, number];
+  volatility: number;
+  transitionProb: number;
+  nextRegimes: PriceRegimeKey[];
+  nextRegimeWeights?: number[];
 };
-  
-type PriceRegimeKey = 'LOW' | 'MID' | 'HIGH';
+
+type PriceRegimeKey = "LOW" | "MID" | "HIGH";
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
-    LOW: {
-        name: 'Bearish Correction',
-        range: [25000, 50000],
-        volatility: 2.2,
-        transitionProb: 0.35, 
-        nextRegimes: ['MID'],
-    },
-    MID: {
-        name: 'Market Consolidation',
-        range: [50000, 75000],
-        volatility: 1.8,
-        transitionProb: 0.15, 
-        nextRegimes: ['LOW', 'HIGH'],
-        nextRegimeWeights: [0.5, 0.5],
-    },
-    HIGH: {
-        name: 'Bull Run',
-        range: [70000, 120000],
-        volatility: 2.5,
-        transitionProb: 0.35, 
-        nextRegimes: ['MID'],
-    },
+  LOW: {
+    name: "Bearish Correction",
+    range: [25000, 50000],
+    volatility: 2.2,
+    transitionProb: 0.35,
+    nextRegimes: ["MID"],
+  },
+  MID: {
+    name: "Market Consolidation",
+    range: [50000, 75000],
+    volatility: 1.8,
+    transitionProb: 0.15,
+    nextRegimes: ["LOW", "HIGH"],
+    nextRegimeWeights: [0.5, 0.5],
+  },
+  HIGH: {
+    name: "Bull Run",
+    range: [70000, 120000],
+    volatility: 2.5,
+    transitionProb: 0.35,
+    nextRegimes: ["MID"],
+  },
 };
 
 interface UserData {
@@ -184,11 +185,11 @@ export default function TradingDashboard() {
   const rawPriceHistoryRef = useRef<PriceData[]>([]);
   const [chartType, setChartType] = useState<"area" | "candlestick">("area");
 
-  const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>('MID');
+  const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>("MID");
 
   const { toast } = useToast();
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
-  
+
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const regimeRef = useRef(priceRegime);
 
@@ -200,7 +201,6 @@ export default function TradingDashboard() {
     resolver: zodResolver(formSchema),
     defaultValues: {},
   });
-
 
   const handleUserLogin = useCallback(
     async (name: string): Promise<"success" | "not_found" | "error"> => {
@@ -215,18 +215,18 @@ export default function TradingDashboard() {
           setAvgBtcCost(userData.avgBtcCost ?? 0);
           setDailyGain(userData.dailyGain ?? 0);
           setDailyLoss(userData.dailyLoss ?? 0);
-          
+
           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
           setCurrentPrice(lastPrice);
-           
-           // Determine initial regime based on last price
-           if (lastPrice < priceRegimes.LOW.range[1]) {
-               setPriceRegime('LOW');
-           } else if (lastPrice > priceRegimes.HIGH.range[0]) {
-               setPriceRegime('HIGH');
-           } else {
-               setPriceRegime('MID');
-           }
+
+          // Determine initial regime based on last price
+          if (lastPrice < priceRegimes.LOW.range[1]) {
+            setPriceRegime("LOW");
+          } else if (lastPrice > priceRegimes.HIGH.range[0]) {
+            setPriceRegime("HIGH");
+          } else {
+            setPriceRegime("MID");
+          }
 
           setUsername(name);
           localStorage.setItem("bitsim_username", name);
@@ -261,89 +261,91 @@ export default function TradingDashboard() {
     if (!username || isLoading) return;
 
     const updatePrice = () => {
-        let currentRegimeKey = regimeRef.current;
-        const currentRegimeInfo = priceRegimes[currentRegimeKey];
+      let currentRegimeKey = regimeRef.current;
+      const currentRegimeInfo = priceRegimes[currentRegimeKey];
 
-        // --- Regime Transition Logic ---
-        if (Math.random() < currentRegimeInfo.transitionProb) {
-            const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
+      // --- Regime Transition Logic ---
+      if (Math.random() < currentRegimeInfo.transitionProb) {
+        const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
 
-            if (nextRegimeWeights) {
-                const random = Math.random();
-                let cumulativeWeight = 0;
-                for (let i = 0; i < nextRegimeWeights.length; i++) {
-                    cumulativeWeight += nextRegimeWeights[i];
-                    if (random < cumulativeWeight) {
-                        currentRegimeKey = nextRegimes[i];
-                        break;
-                    }
-                }
-            } else {
-                currentRegimeKey = nextRegimes[Math.floor(Math.random() * nextRegimes.length)];
+        if (nextRegimeWeights) {
+          const random = Math.random();
+          let cumulativeWeight = 0;
+          for (let i = 0; i < nextRegimeWeights.length; i++) {
+            cumulativeWeight += nextRegimeWeights[i];
+            if (random < cumulativeWeight) {
+              currentRegimeKey = nextRegimes[i];
+              break;
             }
-            setPriceRegime(currentRegimeKey);
+          }
+        } else {
+          currentRegimeKey =
+            nextRegimes[Math.floor(Math.random() * nextRegimes.length)];
+        }
+        setPriceRegime(currentRegimeKey);
+      }
+
+      const currentRegime = priceRegimes[currentRegimeKey];
+
+      setCurrentPrice((prevPrice) => {
+        const [min, max] = currentRegime.range;
+        const target = (min + max) / 2;
+        const volatility = currentRegime.volatility;
+
+        // Strong pull towards the middle of the range to keep it centered
+        const pullFactor = 0.0005;
+        const pull = (target - prevPrice) * pullFactor * Math.random();
+
+        // Random walk component
+        const randomComponent =
+          (Math.random() - 0.5) * prevPrice * volatility * 0.05;
+
+        let newPrice = prevPrice + randomComponent + pull;
+
+        // Push away from boundaries to avoid getting stuck
+        if (newPrice > max) {
+          newPrice -= (newPrice - max) * 0.1;
+        }
+        if (newPrice < min) {
+          newPrice += (min - newPrice) * 0.1;
         }
 
-        const currentRegime = priceRegimes[currentRegimeKey];
+        // A hard floor to prevent catastrophic, unrealistic drops
+        if (newPrice < 1000) newPrice = 1000;
 
-        setCurrentPrice(prevPrice => {
-            const [min, max] = currentRegime.range;
-            const target = (min + max) / 2;
-            const volatility = currentRegime.volatility;
+        return newPrice;
+      });
 
-            // Strong pull towards the middle of the range to keep it centered
-            const pullFactor = 0.0005; 
-            const pull = (target - prevPrice) * pullFactor * Math.random();
+      const nextUpdateIn = Math.random() * 800 + 800; // Slower update speed: 800ms-1600ms
 
-            // Random walk component
-            const randomComponent = (Math.random() - 0.5) * prevPrice * volatility * 0.05;
-
-            let newPrice = prevPrice + randomComponent + pull;
-            
-            // Push away from boundaries to avoid getting stuck
-            if (newPrice > max) {
-              newPrice -= (newPrice - max) * 0.1;
-            }
-            if (newPrice < min) {
-              newPrice += (min - newPrice) * 0.1;
-            }
-
-            // A hard floor to prevent catastrophic, unrealistic drops
-            if (newPrice < 1000) newPrice = 1000;
-
-            return newPrice;
-        });
-
-        const nextUpdateIn = Math.random() * 800 + 800; // Slower update speed: 800ms-1600ms
-
-        if (priceUpdateTimeoutRef.current) {
-            clearTimeout(priceUpdateTimeoutRef.current);
-        }
-        priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
+      if (priceUpdateTimeoutRef.current) {
+        clearTimeout(priceUpdateTimeoutRef.current);
+      }
+      priceUpdateTimeoutRef.current = setTimeout(updatePrice, nextUpdateIn);
     };
 
     updatePrice();
 
     return () => {
-        if (priceUpdateTimeoutRef.current) clearTimeout(priceUpdateTimeoutRef.current);
+      if (priceUpdateTimeoutRef.current)
+        clearTimeout(priceUpdateTimeoutRef.current);
     };
-
   }, [username, isLoading]);
-  
+
   const portfolioValue = usdBalance + btcBalance * currentPrice;
 
   useEffect(() => {
-      const mode = portfolioValue >= EXTREME_MODE_THRESHOLD;
-      if (mode !== isExtremeMode) {
-          setIsExtremeMode(mode);
-          toast({
-              title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
-              description: mode 
-                  ? "Your portfolio is over $1M. Trading rules have changed."
-                  : "Your portfolio is below $1M. Standard trading rules apply.",
-              variant: mode ? "destructive" : "default"
-          })
-      }
+    const mode = portfolioValue >= EXTREME_MODE_THRESHOLD;
+    if (mode !== isExtremeMode) {
+      setIsExtremeMode(mode);
+      toast({
+        title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
+        description: mode
+          ? "Your portfolio is over $1M. Trading rules have changed."
+          : "Your portfolio is below $1M. Standard trading rules apply.",
+        variant: mode ? "destructive" : "default",
+      });
+    }
   }, [portfolioValue, isExtremeMode, toast]);
 
   useEffect(() => {
@@ -436,7 +438,10 @@ export default function TradingDashboard() {
     });
   };
 
-  const handleTrade = async (values: TradeFormValues, type: "buy" | "sell") => {
+  const handleTrade = async (
+    values: TradeFormValues,
+    type: "buy" | "sell"
+  ) => {
     if (isTrading || !username || !values.amount) return;
 
     const { amount: amountInUsd } = values;
@@ -445,7 +450,7 @@ export default function TradingDashboard() {
 
     if (isExtremeMode) {
       // EXTREME MODE LOGIC
-      if (type === 'sell') {
+      if (type === "sell") {
         toast({
           variant: "destructive",
           description: "Sell option is disabled in Extreme Mode.",
@@ -462,14 +467,14 @@ export default function TradingDashboard() {
         setIsTrading(false);
         return;
       }
-      
+
       try {
-        await new Promise(resolve => setTimeout(resolve, 750));
+        await new Promise((resolve) => setTimeout(resolve, 750));
         const isWin = Math.random() < 0.2; // 20% chance to win
         const payout = isWin ? amountInUsd * 1.9 : -amountInUsd;
-        
+
         const newUsdBalance = usdBalance + payout;
-        
+
         const updatedValues = {
           usdBalance: newUsdBalance,
           dailyGain: dailyGain + (payout > 0 ? payout : 0),
@@ -482,24 +487,27 @@ export default function TradingDashboard() {
         setUsdBalance(newUsdBalance);
         setDailyGain(updatedValues.dailyGain);
         setDailyLoss(updatedValues.dailyLoss);
-        
+
         toast({
           title: isWin ? "You Won!" : "You Lost!",
-          description: `You ${isWin ? 'gained' : 'lost'} $${Math.abs(payout).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}.`,
+          description: `You ${
+            isWin ? "gained" : "lost"
+          } $${Math.abs(payout).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}.`,
           variant: isWin ? "default" : "destructive",
-        })
-
+        });
       } catch (err) {
-         console.error("Extreme mode trade error: ", err);
-         toast({
-            variant: "destructive",
-            description: "An error occurred during the trade simulation.",
-         });
+        console.error("Extreme mode trade error: ", err);
+        toast({
+          variant: "destructive",
+          description: "An error occurred during the trade simulation.",
+        });
       } finally {
         setIsTrading(false);
         form.reset({ amount: values.amount });
       }
-
     } else {
       // NORMAL MODE LOGIC
       if (type === "buy" && amountInUsd > usdBalance) {
@@ -515,14 +523,15 @@ export default function TradingDashboard() {
         if (btcAmountEquivalent > btcBalance) {
           toast({
             variant: "destructive",
-            description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
+            description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
+              8
+            )} BTC.`,
           });
           setIsTrading(false);
           return;
         }
       }
       await new Promise((resolve) => setTimeout(resolve, 750));
-
 
       const currentUserData: UserData = {
         usdBalance,
@@ -559,12 +568,18 @@ export default function TradingDashboard() {
         if (type === "buy") {
           toast({
             title: `Trade Successful`,
-            description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
+            description: `Bought ${result.btcAmountTraded.toFixed(
+              8
+            )} BTC for $${amountInUsd.toFixed(2)}.`,
           });
         } else {
           toast({
             title: `Trade Successful`,
-            description: `Sold ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(2)}`,
+            description: `Sold ${result.btcAmountTraded.toFixed(
+              8
+            )} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(
+              2
+            )}`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
         }
@@ -654,7 +669,7 @@ export default function TradingDashboard() {
           <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
             <span className="font-bold text-foreground">
-               {priceRegimes[priceRegime].name}
+              {priceRegimes[priceRegime].name}
             </span>
           </div>
         </div>
@@ -696,22 +711,7 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="h-5 w-5 text-primary"
-                        >
-                          <path d="M12 2L2 22h20L12 2z" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.1)" />
-                          <path d="M10 18c-1.5-1.5-2-3-2-5 0-4 4-6 6-6s6 2 6 6c0 2-.5 3.5-2 5" stroke="hsl(var(--chart-1))" fill="none"/>
-                          <path d="M12 16a4 4 0 00-4-4" stroke="hsl(var(--chart-1))" fill="none"/>
-                        </svg>
+                        <Battery className="h-5 w-5 text-green-500" />
                       </>
                     )}
                   </CardTitle>
@@ -740,7 +740,9 @@ export default function TradingDashboard() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>
-                            {isExtremeMode ? "Bet Amount (USD)" : "Amount (USD)"}
+                            {isExtremeMode
+                              ? "Bet Amount (USD)"
+                              : "Amount (USD)"}
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -751,7 +753,9 @@ export default function TradingDashboard() {
                               disabled={isTrading}
                               onChange={(e) => {
                                 const value = e.target.value;
-                                field.onChange(value === '' ? undefined : Number(value));
+                                field.onChange(
+                                  value === "" ? undefined : Number(value)
+                                );
                               }}
                               value={field.value ?? ""}
                             />
@@ -761,27 +765,27 @@ export default function TradingDashboard() {
                       )}
                     />
                     {!isExtremeMode && (
-                        <FormItem>
+                      <FormItem>
                         <FormLabel>Chart Type</FormLabel>
                         <Select
-                            onValueChange={(value: "area" | "candlestick") =>
+                          onValueChange={(value: "area" | "candlestick") =>
                             setChartType(value)
-                            }
-                            defaultValue={chartType}
+                          }
+                          defaultValue={chartType}
                         >
-                            <FormControl>
+                          <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Select chart type" />
+                              <SelectValue placeholder="Select chart type" />
                             </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
+                          </FormControl>
+                          <SelectContent>
                             <SelectItem value="area">Area</SelectItem>
                             <SelectItem value="candlestick">
-                                Candlestick
+                              Candlestick
                             </SelectItem>
-                            </SelectContent>
+                          </SelectContent>
                         </Select>
-                        </FormItem>
+                      </FormItem>
                     )}
                   </CardContent>
                   <CardFooter className="grid grid-cols-2 gap-4">
@@ -820,13 +824,13 @@ export default function TradingDashboard() {
             </Card>
 
             <Card>
-               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                 <div className="space-y-1.5">
-                    <CardTitle className="font-headline">Portfolio</CardTitle>
-                    <CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div className="space-y-1.5">
+                  <CardTitle className="font-headline">Portfolio</CardTitle>
+                  <CardDescription>
                     Your current assets and total value.
-                    </CardDescription>
-                 </div>
+                  </CardDescription>
+                </div>
                 <Link href="/about" passHref>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
                     <Info className="h-4 w-4" />
