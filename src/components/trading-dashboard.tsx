@@ -89,24 +89,24 @@ type PriceRegimeKey = "LOW" | "MID" | "HIGH";
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   LOW: {
     name: "Bearish Correction",
-    range: [25000, 50000],
+    range: [30000, 50000],
     volatility: 2.2,
-    transitionProb: 0.35,
+    transitionProb: 0.25,
     nextRegimes: ["MID"],
   },
   MID: {
     name: "Market Consolidation",
     range: [50000, 75000],
     volatility: 1.8,
-    transitionProb: 0.15,
+    transitionProb: 0.25,
     nextRegimes: ["LOW", "HIGH"],
     nextRegimeWeights: [0.5, 0.5],
   },
   HIGH: {
     name: "Bull Run",
-    range: [70000, 120000],
+    range: [75000, 120000],
     volatility: 2.5,
-    transitionProb: 0.35,
+    transitionProb: 0.25,
     nextRegimes: ["MID"],
   },
 };
@@ -299,10 +299,11 @@ export default function TradingDashboard() {
         let difficultyFactor = 0;
         let adaptivePull = 0;
 
+        // Apply more difficulty when user has unrealized profits
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.15; 
-            volatility *= (1 + Math.min(difficultyFactor, 2.0)); 
-            adaptivePull = -difficultyFactor * 0.008 * prevPrice * Math.random();
+            difficultyFactor = Math.log1p(unrealizedPL / 500) * 0.25; // More sensitive to smaller gains
+            volatility *= (1 + Math.min(difficultyFactor, 2.5)); // Increased volatility cap
+            adaptivePull = -difficultyFactor * 0.01 * prevPrice * Math.random(); // Stronger downward pull
         }
 
         const pullFactor = 0.0005;
@@ -313,9 +314,11 @@ export default function TradingDashboard() {
 
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
         
-        // Make profits harder to get
+        // Make profits harder to get (more loss bias)
         if (randomComponent > 0) {
-            newPrice -= randomComponent * 0.3; // Dampen upward movements
+            newPrice -= randomComponent * 0.45; // Significantly dampen upward movements
+        } else {
+            newPrice += randomComponent * 0.1; // Slightly amplify downward movements
         }
 
         if (newPrice > max) {
@@ -699,24 +702,12 @@ export default function TradingDashboard() {
                     ) : (
                       <>
                         New Trade
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500">
-                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" />
-                          <path d="M2 17l10 5 10-5" />
-                          <path d="M2 12l10 5 10-5" />
-                          <path d="M10 20v-5.5" stroke="hsl(var(--primary))" />
-                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="hsl(var(--primary))" fillOpacity="0.2" />
-                           <path
-                             className="text-green-500"
-                             stroke="currentColor"
-                             fill="currentColor"
-                             d="M19 12H5"
-                            />
-                            <path
-                                className="text-green-500"
-                                stroke="currentColor"
-                                fill="currentColor"
-                                d="M15 16l4-4-4-4"
-                             />
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
+                          <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
                         </svg>
                       </>
                     )}
@@ -906,3 +897,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
