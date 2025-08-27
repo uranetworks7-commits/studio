@@ -130,6 +130,7 @@ function calculateTrade(
     ...currentUserData,
     tradePL: 0,
     btcAmountTraded: 0,
+    saleProceeds: 0,
   };
 
   if (tradeType === "buy") {
@@ -150,11 +151,11 @@ function calculateTrade(
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
 
-    // We don't add proceeds to balance here, it will be part of the P/L withdrawal
     result.btcBalance -= btcToSell;
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
     result.btcAmountTraded = btcToSell;
+    result.saleProceeds = proceedsFromSale;
   }
   return result;
 }
@@ -323,7 +324,7 @@ export default function TradingDashboard() {
         return newPrice;
       });
 
-      const nextUpdateIn = Math.random() * 800 + 800;
+      const nextUpdateIn = 2000 + Math.random() * 1500; // Slower updates
 
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
@@ -546,48 +547,68 @@ export default function TradingDashboard() {
         currentPrice,
         currentUserData
       );
-      
-      let newTodaysPL = todaysPL;
-      if (type === 'sell') {
-        newTodaysPL += result.tradePL;
-      }
-
-      // Automatically "withdraw" the P/L
-      const newUsdBalance = result.usdBalance + newTodaysPL;
-      
-      const updatedValues = {
-        usdBalance: newUsdBalance,
-        btcBalance: result.btcBalance,
-        avgBtcCost: result.avgBtcCost,
-        todaysPL: 0, // Reset after withdrawal
-      };
 
       try {
-        const userRef = ref(db, `users/${username}`);
-        await update(userRef, updatedValues);
-
-        setUsdBalance(newUsdBalance);
-        setBtcBalance(result.btcBalance);
-        setAvgBtcCost(result.avgBtcCost);
-        setTodaysPL(0); // Reset P/L state
-
         if (type === "buy") {
+          const updatedValues = {
+            usdBalance: result.usdBalance,
+            btcBalance: result.btcBalance,
+            avgBtcCost: result.avgBtcCost,
+          };
+          const userRef = ref(db, `users/${username}`);
+          await update(userRef, updatedValues);
+
+          setUsdBalance(result.usdBalance);
+          setBtcBalance(result.btcBalance);
+          setAvgBtcCost(result.avgBtcCost);
+
           toast({
             title: `Trade Successful`,
             description: `Bought ${result.btcAmountTraded.toFixed(
               8
             )} BTC for $${amountInUsd.toFixed(2)}.`,
           });
-        } else {
-          toast({
-            title: `Trade Successful`,
+        } else { // Sell logic
+          // First, update the non-balance values
+          const initialUpdate = {
+              btcBalance: result.btcBalance,
+              avgBtcCost: result.avgBtcCost,
+              todaysPL: todaysPL + result.tradePL,
+          };
+          const userRef = ref(db, `users/${username}`);
+          await update(userRef, initialUpdate);
+
+          setBtcBalance(result.btcBalance);
+          setAvgBtcCost(result.avgBtcCost);
+          setTodaysPL(todaysPL + result.tradePL);
+
+           toast({
+            title: `Sale Confirmed`,
             description: `Sold ${result.btcAmountTraded.toFixed(
               8
-            )} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(
+            )} BTC. P/L: $${result.tradePL.toFixed(
               2
-            )}. Withdrawn automatically.`,
+            )}. Withdrawing funds...`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
+
+          // Wait 2 seconds before "withdrawing"
+          setTimeout(async () => {
+              const newUsdBalance = usdBalance + result.saleProceeds;
+              const finalUpdate = {
+                  usdBalance: newUsdBalance,
+                  todaysPL: 0
+              };
+              await update(userRef, finalUpdate);
+
+              setUsdBalance(newUsdBalance);
+              setTodaysPL(0);
+
+              toast({
+                  title: 'Withdrawal Complete',
+                  description: `+$${result.saleProceeds.toFixed(2)} added to your USD balance.`
+              });
+          }, 2000);
         }
       } catch (err) {
         console.error("Firebase error during trade: ", err);
@@ -862,5 +883,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
