@@ -705,12 +705,18 @@ export default function TradingDashboard() {
                           <path d="M2 12l10 5 10-5" />
                           <path d="M10 20v-5.5" stroke="hsl(var(--primary))" />
                           <path d="M12 2L2 7l10 5 10-5-10-5z" fill="hsl(var(--primary))" fillOpacity="0.2" />
-                          <path
-                            className="text-green-500"
-                            stroke="currentColor"
-                            fill="currentColor"
-                            d="M11 14.5c0 .8.7 1.5 1.5 1.5.8 0 1.5-.7 1.5-1.5 0-.6-.4-1.2-1-1.4.6-.2 1-.7 1-1.4 0-.8-.7-1.5-1.5-1.5-.8 0-1.5.7-1.5 1.5 0 .6.4 1.2 1 1.4-.6.2-1 .7-1 1.4z"
-                           />
+                           <path
+                             className="text-green-500"
+                             stroke="currentColor"
+                             fill="currentColor"
+                             d="M19 12H5"
+                            />
+                            <path
+                                className="text-green-500"
+                                stroke="currentColor"
+                                fill="currentColor"
+                                d="M15 16l4-4-4-4"
+                             />
                         </svg>
                       </>
                     )}
