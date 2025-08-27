@@ -53,6 +53,7 @@ import { db } from "@/lib/firebase";
 import { get, ref, update } from "firebase/database";
 import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
+import { Separator } from "./ui/separator";
 
 const formSchema = z.object({
   amount: z.coerce
@@ -114,13 +115,14 @@ interface UserData {
   usdBalance: number;
   btcBalance: number;
   avgBtcCost: number;
+  todaysPL: number;
 }
 
 function calculateTrade(
   tradeType: "buy" | "sell",
   amountInUsd: number,
   price: number,
-  currentUserData: UserData
+  currentUserData: Omit<UserData, 'todaysPL'>
 ) {
   const { usdBalance, btcBalance, avgBtcCost } =
     currentUserData;
@@ -148,7 +150,7 @@ function calculateTrade(
     const costOfBtcSold = btcToSell * avgBtcCost;
     const tradePL = proceedsFromSale - costOfBtcSold;
 
-    result.usdBalance += proceedsFromSale;
+    // We don't add proceeds to balance here, it will be part of the P/L withdrawal
     result.btcBalance -= btcToSell;
     result.avgBtcCost = result.btcBalance < 0.00000001 ? 0 : avgBtcCost;
     result.tradePL = tradePL;
@@ -164,7 +166,9 @@ export default function TradingDashboard() {
   const [isTrading, setIsTrading] = useState(false);
   
   const [usdBalance, setUsdBalance] = useState<number>(1000);
-  const btcBalanceRef = useRef<number>(0); // Use ref for latest value in updates
+  const [todaysPL, setTodaysPL] = useState<number>(0);
+
+  const btcBalanceRef = useRef<number>(0); 
   const [btcBalance, _setBtcBalance] = useState<number>(0);
   const avgBtcCostRef = useRef<number>(0);
   const [avgBtcCost, _setAvgBtcCost] = useState<number>(0);
@@ -209,15 +213,15 @@ export default function TradingDashboard() {
         const snapshot = await get(userRef);
 
         if (snapshot.exists()) {
-          const userData = snapshot.val();
+          const userData: UserData = snapshot.val();
           setUsdBalance(userData.usdBalance ?? 1000);
           setBtcBalance(userData.btcBalance ?? 0);
           setAvgBtcCost(userData.avgBtcCost ?? 0);
+          setTodaysPL(userData.todaysPL ?? 0);
 
           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
           setCurrentPrice(lastPrice);
 
-          // Determine initial regime based on last price
           if (lastPrice < priceRegimes.LOW.range[1]) {
             setPriceRegime("LOW");
           } else if (lastPrice > priceRegimes.HIGH.range[0]) {
@@ -262,7 +266,6 @@ export default function TradingDashboard() {
       let currentRegimeKey = regimeRef.current;
       const currentRegimeInfo = priceRegimes[currentRegimeKey];
 
-      // --- Regime Transition Logic ---
       if (Math.random() < currentRegimeInfo.transitionProb) {
         const { nextRegimes, nextRegimeWeights } = currentRegimeInfo;
 
@@ -290,31 +293,24 @@ export default function TradingDashboard() {
         const target = (min + max) / 2;
         let volatility = currentRegime.volatility;
 
-        // --- Adaptive Difficulty ---
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
         let difficultyFactor = 0;
         let adaptivePull = 0;
 
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-            // Increase difficulty when user has unrealized gains
-            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.1; // Log scale to temper the effect
-            volatility *= (1 + Math.min(difficultyFactor, 1.5)); // Cap volatility increase
-
-            // Add downward pressure proportional to gains
-            adaptivePull = -difficultyFactor * 0.005 * prevPrice; // Increased pull for heavy loss potential
+            difficultyFactor = Math.log1p(unrealizedPL / 1000) * 0.1; 
+            volatility *= (1 + Math.min(difficultyFactor, 1.5)); 
+            adaptivePull = -difficultyFactor * 0.005 * prevPrice; 
         }
 
-        // Strong pull towards the middle of the range to keep it centered
         const pullFactor = 0.0005;
         const pull = (target - prevPrice) * pullFactor * Math.random();
 
-        // Random walk component
         const randomComponent =
           (Math.random() - 0.5) * prevPrice * volatility * 0.05;
 
         let newPrice = prevPrice + randomComponent + pull + adaptivePull;
 
-        // Push away from boundaries to avoid getting stuck
         if (newPrice > max) {
           newPrice -= (newPrice - max) * 0.1;
         }
@@ -322,13 +318,12 @@ export default function TradingDashboard() {
           newPrice += (min - newPrice) * 0.1;
         }
 
-        // A hard floor to prevent catastrophic, unrealistic drops
         if (newPrice < 1000) newPrice = 1000;
 
         return newPrice;
       });
 
-      const nextUpdateIn = Math.random() * 800 + 800; // Slower update speed: 800ms-1600ms
+      const nextUpdateIn = Math.random() * 800 + 800;
 
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
@@ -414,7 +409,7 @@ export default function TradingDashboard() {
         await update(userRef, { lastPrice: currentPrice });
       }
     };
-    const timeoutId = setTimeout(savePrice, 1000); // Save price every second
+    const timeoutId = setTimeout(savePrice, 1000); 
     return () => clearTimeout(timeoutId);
   }, [currentPrice, chartType, username]);
 
@@ -422,15 +417,16 @@ export default function TradingDashboard() {
     if (username) {
       try {
         const userRef = ref(db, `users/${username}`);
-        await update(userRef, { lastPrice: currentPrice });
+        await update(userRef, { lastPrice: currentPrice, todaysPL });
       } catch (error) {
-        console.error("Failed to save last price on logout", error);
+        console.error("Failed to save data on logout", error);
       }
     }
     setUsername(null);
     setUsdBalance(0);
     setBtcBalance(0);
     setAvgBtcCost(0);
+    setTodaysPL(0);
     setPriceHistory([]);
     rawPriceHistoryRef.current = [];
     localStorage.removeItem("bitsim_username");
@@ -459,7 +455,6 @@ export default function TradingDashboard() {
     setIsTrading(true);
 
     if (isExtremeMode) {
-      // EXTREME MODE LOGIC
       if (type === "sell") {
         toast({
           variant: "destructive",
@@ -480,7 +475,7 @@ export default function TradingDashboard() {
 
       try {
         await new Promise((resolve) => setTimeout(resolve, 750));
-        const isWin = Math.random() < 0.2; // 20% chance to win
+        const isWin = Math.random() < 0.2;
         const payout = isWin ? amountInUsd * 1.9 : -amountInUsd;
 
         const newUsdBalance = usdBalance + payout;
@@ -539,7 +534,7 @@ export default function TradingDashboard() {
       }
       await new Promise((resolve) => setTimeout(resolve, 750));
 
-      const currentUserData: UserData = {
+      const currentUserData = {
         usdBalance,
         btcBalance,
         avgBtcCost,
@@ -551,19 +546,30 @@ export default function TradingDashboard() {
         currentPrice,
         currentUserData
       );
+      
+      let newTodaysPL = todaysPL;
+      if (type === 'sell') {
+        newTodaysPL += result.tradePL;
+      }
+
+      // Automatically "withdraw" the P/L
+      const newUsdBalance = result.usdBalance + newTodaysPL;
+      
       const updatedValues = {
-        usdBalance: result.usdBalance,
+        usdBalance: newUsdBalance,
         btcBalance: result.btcBalance,
         avgBtcCost: result.avgBtcCost,
+        todaysPL: 0, // Reset after withdrawal
       };
 
       try {
         const userRef = ref(db, `users/${username}`);
         await update(userRef, updatedValues);
 
-        setUsdBalance(result.usdBalance);
+        setUsdBalance(newUsdBalance);
         setBtcBalance(result.btcBalance);
         setAvgBtcCost(result.avgBtcCost);
+        setTodaysPL(0); // Reset P/L state
 
         if (type === "buy") {
           toast({
@@ -579,7 +585,7 @@ export default function TradingDashboard() {
               8
             )} BTC for $${amountInUsd.toFixed(2)}. P/L: $${result.tradePL.toFixed(
               2
-            )}`,
+            )}. Withdrawn automatically.`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
         }
@@ -823,6 +829,25 @@ export default function TradingDashboard() {
                       </div>
                       <span>{btcBalance.toFixed(8)}</span>
                     </div>
+                    {!isExtremeMode && (
+                        <>
+                        <Separator />
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Today's P/L</span>
+                            <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                         <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            disabled
+                        >
+                            Withdrawal is Automatic
+                        </Button>
+                        </>
+                    )}
                   </>
                 ) : (
                   <div className="flex justify-center items-center h-full">
@@ -837,3 +862,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
