@@ -80,24 +80,20 @@ type PriceRegimeKey = "LOW" | "MID" | "HIGH";
 type PriceRegime = {
   name: string;
   range: [number, number];
-  volatility: number;
 };
 
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
     LOW: {
         name: "Bearish Correction",
-        range: [30000, 50000],
-        volatility: 0,
+        range: [35000, 55000],
     },
     MID: {
         name: "Market Consolidation",
-        range: [50000, 75000],
-        volatility: 0.15,
+        range: [55000, 75000],
     },
     HIGH: {
         name: "Bull Run",
         range: [75000, 120000],
-        volatility: 0,
     },
 };
 
@@ -215,15 +211,16 @@ export default function TradingDashboard() {
           setTodaysPL(userData.todaysPL ?? 0);
 
           const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
-          setCurrentPrice(lastPrice);
-
+          
+          let initialRegime: PriceRegimeKey = "MID";
           if (lastPrice < priceRegimes.LOW.range[1]) {
-            setPriceRegime("LOW");
+            initialRegime = "LOW";
           } else if (lastPrice > priceRegimes.HIGH.range[0]) {
-            setPriceRegime("HIGH");
-          } else {
-            setPriceRegime("MID");
+            initialRegime = "HIGH";
           }
+          
+          setCurrentPrice(lastPrice);
+          setPriceRegime(initialRegime);
 
           setUsername(name);
           localStorage.setItem("bitsim_username", name);
@@ -264,13 +261,15 @@ export default function TradingDashboard() {
   
         // State machine for regime transitions
         if (currentRegimeKey === 'LOW') {
-            if (random < 0.99) currentRegimeKey = 'MID';
+            // 100% chance to go to MID
+            currentRegimeKey = 'MID';
         } else if (currentRegimeKey === 'HIGH') {
-            if (random < 0.99) currentRegimeKey = 'MID';
+            // 100% chance to go to MID
+            currentRegimeKey = 'MID';
         } else { // MID
-            if (random < 0.10) { 
+            if (random < 0.02) { // 2% chance to go LOW
                 currentRegimeKey = 'LOW';
-            } else if (random < 0.20) {
+            } else if (random < 0.04) { // 2% chance to go HIGH
                 currentRegimeKey = 'HIGH';
             }
         }
@@ -282,48 +281,45 @@ export default function TradingDashboard() {
         const currentRegime = priceRegimes[currentRegimeKey];
         let newPrice = prevPrice;
 
-        const [minRange, maxRange] = currentRegime.range;
-        const targetMin = 60000;
-        const targetMax = 71000;
-        const targetCenter = (targetMin + targetMax) / 2;
+        // --- New Realistic Price Movement Logic ---
+        const movementRand = Math.random();
+        let percentageChange = 0;
 
-        let gravity = 0;
-        if (currentRegimeKey === 'MID') {
-            // "Gravity Well" logic: gently pull towards 60k-71k
-            if (newPrice < targetMin) {
-                gravity = (targetCenter - newPrice) * 0.005; // Weaker pull up
-            } else if (newPrice > targetMax) {
-                gravity = (targetCenter - newPrice) * 0.01; // Stronger pull down
-            }
-            
-            // Add volatility only in MID range
-            const volatilityComponent = (Math.random() - 0.5) * prevPrice * currentRegime.volatility * 0.01;
-            newPrice += volatilityComponent;
+        if (movementRand < 0.95) { // 95% chance for small change
+            percentageChange = (Math.random() - 0.5) * 0.01; // -0.5% to +0.5%
+        } else { // 5% chance for larger swing
+            percentageChange = (Math.random() - 0.5) * 0.08; // -4% to +4%
         }
-
-        newPrice += gravity;
+        
+        let changeAmount = prevPrice * percentageChange;
         
         // Harder mode: downward pressure against unrealized gains
         const unrealizedPL = (prevPrice - avgBtcCostRef.current) * btcBalanceRef.current;
-        let difficultyFactor = 0;
         if (unrealizedPL > 0 && btcBalanceRef.current > 0) {
-          difficultyFactor = Math.log1p(unrealizedPL / 100) * 0.05 * (Math.random()); 
+          const difficultyFactor = Math.log1p(unrealizedPL) * 0.0001;
+          changeAmount -= prevPrice * difficultyFactor * Math.random();
         }
-        newPrice -= difficultyFactor;
+        
+        newPrice += changeAmount;
 
-        // Nudge price back towards its range if it drifts out
+        // Gravity/Mean Reversion towards the center of the current regime
+        const [minRange, maxRange] = currentRegime.range;
         const pullToCenter = (minRange + maxRange) / 2;
+        
         if (newPrice < minRange) {
-          newPrice += (pullToCenter - newPrice) * 0.1;
+          newPrice += (pullToCenter - newPrice) * 0.05; // Stronger pull up
         } else if (newPrice > maxRange) {
-          newPrice += (pullToCenter - newPrice) * 0.1;
+          newPrice += (pullToCenter - newPrice) * 0.05; // Stronger pull down
         }
 
-        // Clamp to absolute min/max to prevent total collapse/explosion
-        return Math.max(minRange * 0.95, Math.min(maxRange * 1.05, newPrice));
+        // Final clamp to ensure it never goes out of absolute bounds
+        const absoluteMin = priceRegimes.LOW.range[0] * 0.9;
+        const absoluteMax = priceRegimes.HIGH.range[1] * 1.1;
+        
+        return Math.max(absoluteMin, Math.min(absoluteMax, newPrice));
       });
   
-      const nextUpdateIn = 1500 + Math.random() * 1000;
+      const nextUpdateIn = 1000 + Math.random() * 500;
   
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
