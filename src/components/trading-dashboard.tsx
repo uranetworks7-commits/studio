@@ -1119,7 +1119,7 @@ export default function TradingDashboard() {
   
   const renderGoldFlyUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[40vh] md:min-h-[50vh] lg:min-h-0">
         <GoldFlyAnimation 
             ref={planeRef}
             gameState={goldFlyState} 
@@ -1236,7 +1236,7 @@ export default function TradingDashboard() {
 
   const renderBitCrashUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[40vh] md:min-h-[50vh] lg:min-h-0">
         <BitCrashAnimation
           gameState={bitCrashState}
           gainPercent={gainPercent}
@@ -1406,3 +1406,4 @@ export default function TradingDashboard() {
 
     
 
+    
