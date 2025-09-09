@@ -141,10 +141,12 @@
   }
 
   .animate-crash-fly {
-    animation: crash-fly 15s linear forwards;
+    animation: crash-fly 25s linear forwards;
   }
 
   .animate-crash-blast {
     animation: crash-blast 0.5s ease-out forwards;
   }
 }
+
+    

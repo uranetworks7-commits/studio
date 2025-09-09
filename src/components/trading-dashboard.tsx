@@ -652,7 +652,7 @@ export default function TradingDashboard() {
 
     bitCrashIntervalRef.current = setInterval(() => {
         setGainPercent(prevGain => {
-            const newGain = prevGain + Math.random() * 1.5;
+            const newGain = prevGain + Math.random() * 0.5;
             
             let blastChance = 0;
             if (newGain < 25) blastChance = 0.30;
