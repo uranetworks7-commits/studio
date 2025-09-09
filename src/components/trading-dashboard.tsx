@@ -60,6 +60,7 @@ import { UserModal } from "./user-modal";
 import { Separator } from "./ui/separator";
 import { GoldFlyAnimation } from "./goldfly-animation";
 import { BitCrashAnimation } from "./bit-crash-animation";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 
 const formSchema = z.object({
   amount: z.coerce
@@ -215,6 +216,7 @@ export default function TradingDashboard() {
   const [goldFlyAltitude, setGoldFlyAltitude] = useState(0);
   const planeRef = useRef<HTMLDivElement>(null);
   const [finalAltitude, setFinalAltitude] = useState<number | null>(null);
+  const [isGoldFlyRulesOpen, setIsGoldFlyRulesOpen] = useState(false);
 
   // BitCrash State
   const [bitCrashState, setBitCrashState] = useState<'idle' | 'running' | 'blasted' | 'withdrawn'>('idle');
@@ -222,6 +224,7 @@ export default function TradingDashboard() {
   const [isTurboRound, setIsTurboRound] = useState(false);
   const [blastToast, setBlastToast] = useState(false);
   const bitCrashIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isBitCrashRulesOpen, setIsBitCrashRulesOpen] = useState(false);
 
 
   const { toast } = useToast();
@@ -1117,17 +1120,17 @@ export default function TradingDashboard() {
     portfolioComponent: React.ReactNode
   ) => (
     <div className="flex flex-col h-full gap-4">
-        <div className="flex-grow rounded-lg overflow-hidden">
-            {animationComponent}
-        </div>
-        <div className="flex flex-col md:flex-row gap-4">
-            <div className="w-full md:w-1/2">
-                {controlsComponent}
-            </div>
-            <div className="w-full md:w-1/2">
-                {portfolioComponent}
-            </div>
-        </div>
+      <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-[50vh]">
+          {animationComponent}
+      </div>
+      <div className="flex flex-col md:flex-row gap-4">
+          <div className="w-full md:w-1/2">
+              {controlsComponent}
+          </div>
+          <div className="w-full md:w-1/2">
+              {portfolioComponent}
+          </div>
+      </div>
     </div>
   );
 
@@ -1154,7 +1157,13 @@ export default function TradingDashboard() {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Bet (USD)</FormLabel>
+                   <div className="flex items-center justify-between">
+                    <FormLabel>Bet (USD)</FormLabel>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsGoldFlyRulesOpen(true)}>
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">Show GoldFly Rules</span>
+                    </Button>
+                  </div>
                   <FormControl>
                     <Input
                       placeholder="100.00"
@@ -1227,7 +1236,13 @@ export default function TradingDashboard() {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Bet (USD)</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Bet (USD)</FormLabel>
+                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsBitCrashRulesOpen(true)}>
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">Show Bit Crash Rules</span>
+                    </Button>
+                  </div>
                   <FormControl>
                     <Input
                       placeholder="100.00"
@@ -1329,7 +1344,7 @@ export default function TradingDashboard() {
           </div>
         )}
       </header>
-      <main className="flex-grow p-4 md:p-6 overflow-y-auto">
+      <main className="flex-grow p-2 md:p-6 overflow-y-auto">
         <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4 shrink-0">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
@@ -1367,6 +1382,52 @@ export default function TradingDashboard() {
             </TabsContent>
         </Tabs>
       </main>
+
+       {/* GoldFly Rules Dialog */}
+      <AlertDialog open={isGoldFlyRulesOpen} onOpenChange={setIsGoldFlyRulesOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Plane className="h-5 w-5 text-yellow-400" />
+              GoldFly Rules
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left pt-2 space-y-2">
+              <p>1. Place a bet on whether the plane's final altitude will be UP (above 50) or DOWN (below 50).</p>
+              <p>2. The plane will fly for 5 seconds on a random path.</p>
+              <p>3. If you guess the final position correctly, you win a payout of <strong>{GOLDFLY_PAYOUT_RATE}x</strong> your bet amount.</p>
+              <p>4. If you are incorrect, you lose your bet amount.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsGoldFlyRulesOpen(false)}>Got it!</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* BitCrash Rules Dialog */}
+      <AlertDialog open={isBitCrashRulesOpen} onOpenChange={setIsBitCrashRulesOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+               <Rocket className="h-5 w-5 text-destructive" />
+               Bit Crash Rules
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-left pt-2 space-y-2">
+              <p>1. Place a bet and watch the gain percentage climb.</p>
+              <p>2. Withdraw your bet at any time before the rocket "blasts" (crashes).</p>
+              <p>3. If you withdraw successfully, you keep your bet plus the gain percentage shown at the moment of withdrawal.</p>
+              <p>4. If the rocket blasts before you withdraw, you lose your entire bet.</p>
+              <p>5. There is an 8% chance of a <strong>Turbo Round</strong>, where the blast only happens between 80-90% gain.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsBitCrashRulesOpen(false)}>Let's Fly!</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
+
+    
