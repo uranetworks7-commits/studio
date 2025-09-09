@@ -72,37 +72,37 @@
 @layer utilities {
   @keyframes projectile-up {
     0% {
-      transform: translate(0, 0) rotate(-15deg);
+      transform: translate(0, 0);
     }
     25% {
-      transform: translate(100px, -80px) rotate(-5deg);
+      transform: translate(120px, -100px);
     }
     50% {
-      transform: translate(225px, -60px) rotate(0deg);
+      transform: translate(250px, -80px);
     }
     75% {
-      transform: translate(350px, -80px) rotate(5deg);
+      transform: translate(380px, -120px);
     }
     100% {
-      transform: translate(450px, 0) rotate(15deg);
+      transform: translate(500px, -40px);
     }
   }
 
   @keyframes projectile-down {
     0% {
-      transform: translate(0, 0) rotate(15deg);
+      transform: translate(0, 0);
     }
     25% {
-      transform: translate(100px, 80px) rotate(5deg);
+      transform: translate(120px, 100px);
     }
     50% {
-      transform: translate(225px, 60px) rotate(0deg);
+      transform: translate(250px, 80px);
     }
     75% {
-      transform: translate(350px, 80px) rotate(-5deg);
+      transform: translate(380px, 120px);
     }
     100% {
-      transform: translate(450px, 0) rotate(-15deg);
+      transform: translate(500px, 40px);
     }
   }
 
