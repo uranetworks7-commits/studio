@@ -16,11 +16,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
         <meta
           name="viewport"
-          content={
-            isDesktopView
-              ? "width=1280, initial-scale=1"
-              : "width=device-width, initial-scale=1"
-          }
+          content="width=1280, initial-scale=1"
         />
       </head>
       <body className="font-body antialiased">

@@ -225,7 +225,7 @@ export default function TradingDashboard() {
 
 
   const { toast } = useToast();
-  const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
+  const { isMobile } = useViewport();
 
   const priceUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const regimeRef = useRef(priceRegime);
@@ -944,15 +944,6 @@ export default function TradingDashboard() {
                   : "Buy or sell Bitcoin."}
               </CardDescription>
             </div>
-            {isMobile && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setIsDesktopView(!isDesktopView)}
-              >
-                {isDesktopView ? <Smartphone /> : <Monitor />}
-              </Button>
-            )}
           </CardHeader>
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
@@ -1121,7 +1112,7 @@ export default function TradingDashboard() {
   
   const renderGoldFlyUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[240px] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[240px] md:min-h-0">
         <GoldFlyAnimation 
             ref={planeRef}
             gameState={goldFlyState} 
@@ -1235,7 +1226,7 @@ export default function TradingDashboard() {
 
   const renderBitCrashUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[240px] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[240px] md:min-h-0">
         <BitCrashAnimation
           gameState={bitCrashState}
           gainPercent={gainPercent}
