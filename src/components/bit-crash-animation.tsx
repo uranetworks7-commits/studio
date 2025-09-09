@@ -98,7 +98,7 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
                 )}
             </div>
              {gameState === 'running' && (
-                <div className="absolute top-1 w-11/12 md:w-3/4 lg:w-2/3 flex items-center justify-around gap-1 z-30">
+                <div className="absolute bottom-2 md:bottom-4 w-11/12 md:w-3/4 lg:w-2/3 flex items-center justify-around gap-1 z-30">
                     <div className="flex flex-col items-center text-white/90 gap-0">
                        <div className='flex items-center gap-1'>
                            <Mountain className="h-3 w-3" />
