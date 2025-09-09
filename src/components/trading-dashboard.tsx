@@ -75,7 +75,7 @@ const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
 const EXTREME_MODE_THRESHOLD = 1_000_000;
 const GOLDFLY_LOCKOUT_THRESHOLD = 10_000_000;
-const GOLDFLY_PAYOUT_RATE = 1.8; // 1.8x payout
+const GOLDFLY_PAYOUT_RATE = 1.4; // 1.4x payout
 
 interface PriceData {
   time: string;
@@ -213,6 +213,7 @@ export default function TradingDashboard() {
   const [goldFlyBet, setGoldFlyBet] = useState<{direction: 'up' | 'down', amount: number} | null>(null);
   const [goldFlyAltitude, setGoldFlyAltitude] = useState(0);
   const planeRef = useRef<HTMLDivElement>(null);
+  const [finalAltitude, setFinalAltitude] = useState<number | null>(null);
 
   // BitCrash State
   const [bitCrashState, setBitCrashState] = useState<'idle' | 'running' | 'blasted' | 'withdrawn'>('idle');
@@ -405,7 +406,7 @@ export default function TradingDashboard() {
   }, [username, isLoading, tradeMode]);
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
-  const isGoldFlyLocked = portfolioValue > GOLDFLY_LOCKOUT_THRESHOLD;
+  const isGoldFlyLocked = usdBalance > GOLDFLY_LOCKOUT_THRESHOLD;
 
 
   // Altitude tracker for GoldFly
@@ -431,6 +432,51 @@ export default function TradingDashboard() {
 
     return () => clearInterval(interval);
   }, [goldFlyState]);
+
+   const handleGoldFlyAnimationComplete = useCallback((altitude: number) => {
+    if (!username || !goldFlyBet) {
+      setIsTrading(false);
+      return;
+    }
+    setFinalAltitude(altitude);
+  }, [username, goldFlyBet]);
+  
+  useEffect(() => {
+    if (finalAltitude === null || !username || !goldFlyBet) return;
+    
+    const betLineAltitude = 50;
+    const { direction, amount: betAmount } = goldFlyBet;
+    
+    const isWin = (direction === 'up' && finalAltitude > betLineAltitude) || 
+                  (direction === 'down' && finalAltitude < betLineAltitude);
+
+    let finalUsdBalance;
+    if (isWin) {
+      const winnings = betAmount * GOLDFLY_PAYOUT_RATE;
+      finalUsdBalance = usdBalance + winnings - betAmount;
+      toast({
+        title: "You Won! 🎉",
+        description: `Your profit is $${(winnings - betAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+      });
+    } else {
+      finalUsdBalance = usdBalance; // Bet amount was already deducted
+      toast({
+        title: "You Lost ❌",
+        description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+        variant: 'destructive'
+      });
+    }
+
+    const userRef = ref(db, `users/${username}`);
+    update(userRef, { usdBalance: finalUsdBalance });
+    setUsdBalance(finalUsdBalance);
+
+    setGoldFlyState('finished');
+    setIsTrading(false);
+    form.reset({ amount: goldFlyBet.amount });
+    setFinalAltitude(null);
+
+  }, [finalAltitude, username, goldFlyBet, usdBalance, toast, form]);
 
 
   useEffect(() => {
@@ -571,57 +617,7 @@ export default function TradingDashboard() {
     setGoldFlyState('running');
     
     // Deduct bet amount immediately
-    const initialUsdBalance = usdBalance;
     setUsdBalance(prev => prev - betAmount);
-    
-    setTimeout(() => {
-        if (!planeRef.current) {
-             setIsTrading(false);
-             return;
-        }
-        const container = planeRef.current.parentElement;
-        if (!container) {
-             setIsTrading(false);
-             return;
-        }
-
-        const planeRect = planeRef.current.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        
-        const planeCenterY = planeRect.top - containerRect.top + planeRect.height / 2;
-        const finalAltitude = 100 - (planeCenterY / containerRect.height * 100);
-        
-        const betLineAltitude = 50;
-        
-        const isWin = (direction === 'up' && finalAltitude > betLineAltitude) || 
-                      (direction === 'down' && finalAltitude < betLineAltitude);
-        
-        let finalUsdBalance;
-        if (isWin) {
-            const winnings = betAmount * GOLDFLY_PAYOUT_RATE;
-            finalUsdBalance = initialUsdBalance - betAmount + winnings;
-            toast({
-                title: "You Won! 🎉",
-                description: `Your profit is $${(winnings - betAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-            });
-        } else {
-            finalUsdBalance = initialUsdBalance - betAmount;
-            toast({
-                title: "You Lost ❌",
-                description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
-                variant: 'destructive'
-            });
-        }
-        
-        const userRef = ref(db, `users/${username}`);
-        update(userRef, { usdBalance: finalUsdBalance });
-        setUsdBalance(finalUsdBalance);
-        
-        setGoldFlyState('finished');
-        setIsTrading(false);
-        form.reset({ amount: values.amount });
-
-    }, 5000); 
   }
 
   const handleBitCrashBlast = useCallback(() => {
@@ -1105,6 +1101,7 @@ export default function TradingDashboard() {
             gameState={goldFlyState} 
             bet={goldFlyBet} 
             altitude={goldFlyAltitude}
+            onAnimationComplete={handleGoldFlyAnimationComplete}
         />
       </div>
 
@@ -1125,7 +1122,7 @@ export default function TradingDashboard() {
                  {isGoldFlyLocked && (
                     <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
                         <p className="font-bold">GoldFly Mode Disabled</p>
-                        <p className="text-sm">Your portfolio exceeds ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                        <p className="text-sm">Your USD balance exceeds ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
                     </div>
                  )}
                 <FormField

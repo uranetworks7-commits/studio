@@ -11,9 +11,10 @@ interface GoldFlyAnimationProps {
     gameState: 'idle' | 'running' | 'finished';
     bet: { direction: 'up' | 'down', amount: number } | null;
     altitude: number;
+    onAnimationComplete: (finalAltitude: number) => void;
 }
 
-export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps>(({ gameState, bet, altitude }, ref) => {
+export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps>(({ gameState, bet, altitude, onAnimationComplete }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [pathData, setPathData] = React.useState([{ time: 0, alt: 50 }]);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -21,7 +22,7 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
     const animationClass = useMemo(() => {
         if (gameState !== 'running' || !bet) return '';
         
-        const isWinOutcome = Math.random() < 0.70;
+        const isWinOutcome = Math.random() < 0.60;
         
         if ((bet.direction === 'up' && isWinOutcome) || (bet.direction === 'down' && !isWinOutcome)) {
             return 'animate-projectile-up';
@@ -41,8 +42,9 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
     }, [altitude, bet, gameState]);
 
      useEffect(() => {
+        let animationEndTimeout: NodeJS.Timeout | null = null;
         if (gameState === 'running') {
-             setPathData([{ time: 0, alt: 50 }]); // Reset path for new game
+            setPathData([{ time: 0, alt: 50 }]); // Reset path for new game
             intervalRef.current = setInterval(() => {
                 if (!ref || !(ref as React.RefObject<HTMLDivElement>).current) return;
                 const planeElement = (ref as React.RefObject<HTMLDivElement>).current;
@@ -61,6 +63,20 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
                 setPathData(prev => [...prev, { time: newTime, alt: newAltitude }].slice(-50));
 
             }, 100);
+
+            animationEndTimeout = setTimeout(() => {
+                if (!ref || !(ref as React.RefObject<HTMLDivElement>).current) return;
+                const planeElement = (ref as React.RefObject<HTMLDivElement>).current;
+                const containerElement = containerRef.current;
+                 if (!planeElement || !containerElement) return;
+
+                const planeRect = planeElement.getBoundingClientRect();
+                const containerRect = containerElement.getBoundingClientRect();
+                const finalY = planeRect.top - containerRect.top + planeRect.height / 2;
+                const finalAltitude = 100 - (finalY / containerRect.height * 100);
+                onAnimationComplete(finalAltitude);
+            }, 5000); // Animation duration is 5s
+
         } else if (gameState === 'idle' || gameState === 'finished') {
             setPathData([{ time: 0, alt: 50 }]);
             if (intervalRef.current) {
@@ -69,11 +85,10 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
         }
         
         return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if(animationEndTimeout) clearTimeout(animationEndTimeout);
         };
-    }, [gameState, ref]);
+    }, [gameState, ref, onAnimationComplete]);
 
 
     return (
