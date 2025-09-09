@@ -1119,11 +1119,11 @@ export default function TradingDashboard() {
     controlsComponent: React.ReactNode,
     portfolioComponent: React.ReactNode
   ) => (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-2">
       <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-0">
           {animationComponent}
       </div>
-      <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col md:flex-row gap-2">
           <div className="w-full md:w-1/2">
               {controlsComponent}
           </div>
@@ -1137,15 +1137,15 @@ export default function TradingDashboard() {
 
   const goldFlyControls = (
     <Card>
-      <CardHeader className="p-4">
-         <CardTitle className="font-headline flex items-center gap-2 text-xl">
+      <CardHeader className="p-2">
+         <CardTitle className="font-headline flex items-center gap-2 text-lg">
             GoldFly
-            <Plane className="h-5 w-5 text-yellow-400" />
+            <Plane className="h-4 w-4 text-yellow-400" />
         </CardTitle>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()}>
-          <CardContent className="space-y-4 p-4 pt-0">
+          <CardContent className="space-y-2 p-2 pt-0">
              {isGoldFlyLocked && (
                 <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
                     <p className="font-bold">GoldFly Disabled</p>
@@ -1158,7 +1158,7 @@ export default function TradingDashboard() {
               render={({ field }) => (
                 <FormItem>
                    <div className="flex items-center justify-between">
-                    <FormLabel>Bet (USD)</FormLabel>
+                    <FormLabel className="text-xs">Bet (USD)</FormLabel>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsGoldFlyRulesOpen(true)}>
                       <Info className="h-4 w-4" />
                       <span className="sr-only">Show GoldFly Rules</span>
@@ -1170,6 +1170,7 @@ export default function TradingDashboard() {
                       {...field}
                       type="number"
                       step="0.01"
+                      size="sm"
                       disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -1183,11 +1184,12 @@ export default function TradingDashboard() {
               )}
             />
           </CardContent>
-          <CardFooter className="grid grid-cols-2 gap-4 p-4 pt-0">
+          <CardFooter className="grid grid-cols-2 gap-2 p-2 pt-0">
             <Button
               onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
               disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
               className="bg-green-600 hover:bg-green-700 text-white"
+              size="sm"
             >
               {isTrading && goldFlyBet?.direction === 'up' ? (
                 <Loader2 className="animate-spin mr-2" />
@@ -1200,6 +1202,7 @@ export default function TradingDashboard() {
               onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
               variant="destructive"
               disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
+              size="sm"
             >
               {isTrading && goldFlyBet?.direction === 'down' ? (
                 <Loader2 className="animate-spin mr-2" />
@@ -1216,15 +1219,15 @@ export default function TradingDashboard() {
 
   const bitCrashControls = (
     <Card>
-      <CardHeader className="p-4">
-         <CardTitle className="font-headline flex items-center gap-2 text-xl">
+      <CardHeader className="p-2">
+         <CardTitle className="font-headline flex items-center gap-2 text-lg">
             Bit Crash
-            <Rocket className="h-5 w-5 text-destructive" />
+            <Rocket className="h-4 w-4 text-destructive" />
         </CardTitle>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()}>
-          <CardContent className="space-y-4 p-4 pt-0">
+          <CardContent className="space-y-2 p-2 pt-0">
              {isBitCrashLocked && (
                 <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
                     <p className="font-bold">Bit Crash Disabled</p>
@@ -1237,7 +1240,7 @@ export default function TradingDashboard() {
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Bet (USD)</FormLabel>
+                    <FormLabel className="text-xs">Bet (USD)</FormLabel>
                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsBitCrashRulesOpen(true)}>
                       <Info className="h-4 w-4" />
                       <span className="sr-only">Show Bit Crash Rules</span>
@@ -1249,6 +1252,7 @@ export default function TradingDashboard() {
                       {...field}
                       type="number"
                       step="0.01"
+                      size="sm"
                       disabled={isTrading || isBitCrashLocked}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -1262,12 +1266,13 @@ export default function TradingDashboard() {
               )}
             />
           </CardContent>
-          <CardFooter className="p-4 pt-0">
+          <CardFooter className="p-2 pt-0">
              {bitCrashState === 'running' ? (
                  <Button
                     onClick={handleBitCrashWithdraw}
                     disabled={!isTrading}
                     className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
                     >
                     <HandCoins className="mr-2 h-4 w-4" />
                     Withdraw {`(${(form.getValues('amount' || 0) * (1 + gainPercent/100)).toFixed(2)})`}
@@ -1277,6 +1282,7 @@ export default function TradingDashboard() {
                     onClick={form.handleSubmit(handleBitCrashFly)}
                     disabled={isTrading || isBitCrashLocked}
                     className="w-full"
+                    size="sm"
                 >
                     {isTrading && bitCrashState !== 'running' ? (
                         <Loader2 className="animate-spin mr-2" />
@@ -1294,16 +1300,16 @@ export default function TradingDashboard() {
 
   const gamePortfolio = (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
-        <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between pb-1 p-2">
+        <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 p-4 pt-0">
-        <div className="flex items-center justify-between">
+      <CardContent className="space-y-1 p-2 pt-0">
+        <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Landmark className="h-5 w-5 text-primary" />
-            <span>USD Balance</span>
+            <Landmark className="h-4 w-4 text-primary" />
+            <span>USD</span>
           </div>
-          <span className="font-mono">
+          <span className="font-mono text-sm">
             $
             {usdBalance.toLocaleString("en-US", {
               minimumFractionDigits: 2,
@@ -1317,9 +1323,9 @@ export default function TradingDashboard() {
 
   return (
     <div className="flex flex-col h-screen max-h-screen bg-background">
-      <header className="p-4 border-b flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl md:text-2xl font-headline font-bold text-primary">
+      <header className="p-2 border-b flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg md:text-2xl font-headline font-bold text-primary">
             URA Trade
           </h1>
           {tradeMode === 'normal' && <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
@@ -1330,23 +1336,23 @@ export default function TradingDashboard() {
           </div>}
         </div>
         {username && (
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span>{username}</span>
             </div>
-            <Button variant="outline" size="icon" onClick={handleFeedback}>
+            <Button variant="outline" size="icon" onClick={handleFeedback} className="h-8 w-8">
               <ThumbsUp className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleLogout}>
+            <Button variant="outline" size="icon" onClick={handleLogout} className="h-8 w-8">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
         )}
       </header>
-      <main className="flex-grow p-2 md:p-6 overflow-y-auto">
+      <main className="flex-grow p-2 overflow-y-auto">
         <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4 shrink-0">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-2 shrink-0">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
                 <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
                 <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
@@ -1433,5 +1439,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    

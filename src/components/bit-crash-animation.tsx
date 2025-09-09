@@ -98,16 +98,16 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
                 )}
             </div>
              {gameState === 'running' && (
-                <div className="absolute bottom-2 md:bottom-4 w-11/12 md:w-3/4 lg:w-2/3 flex items-center justify-around gap-1 z-30">
+                <div className="absolute bottom-2 w-11/12 md:w-3/4 lg:w-2/3 flex items-center justify-around gap-1 z-30">
                     <div className="flex flex-col items-center text-white/90 gap-0">
                        <div className='flex items-center gap-1'>
                            <Mountain className="h-3 w-3" />
-                           <span className="font-semibold text-xs md:text-lg">Height</span>
+                           <span className="font-semibold text-xs">Height</span>
                         </div>
-                        <span className="font-mono text-base md:text-2xl font-bold">{height.toFixed(0)} ft</span>
+                        <span className="font-mono text-base font-bold">{height.toFixed(0)} ft</span>
                     </div>
                     <div className='flex flex-col items-center text-white/90 gap-0'>
-                        <span className="font-semibold text-xs md:text-lg">Danger</span>
+                        <span className="font-semibold text-xs">Danger</span>
                         <GaugeMeter value={dangerLevel} size={60} />
                     </div>
                 </div>
@@ -138,6 +138,3 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
 });
 
 BitCrashAnimation.displayName = "BitCrashAnimation";
-
-
-    
