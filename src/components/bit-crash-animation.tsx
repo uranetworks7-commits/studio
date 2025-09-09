@@ -5,8 +5,8 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer } from 'recharts';
-import { Progress } from './ui/progress';
-import { Mountain, Gauge } from 'lucide-react';
+import { Mountain } from 'lucide-react';
+import { GaugeMeter } from './ui/gauge-meter';
 
 interface BitCrashAnimationProps {
     gameState: 'idle' | 'running' | 'blasted' | 'withdrawn';
@@ -62,7 +62,6 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
     const showPlane = gameState === 'running' || gameState === 'blasted';
 
     const dangerLevel = Math.min(100, gainPercent);
-    const dangerColor = dangerLevel < 50 ? 'bg-green-500' : dangerLevel < 80 ? 'bg-yellow-500' : 'bg-red-500';
 
     return (
         <div ref={containerRef} className="w-full h-full bg-blue-900/20 rounded-lg flex items-center justify-center relative overflow-hidden">
@@ -92,21 +91,18 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
                 )}
             </div>
              {gameState === 'running' && (
-                <div className="absolute top-4 w-11/12 md:w-3/4 lg:w-1/2 flex flex-col gap-2 z-30">
-                    <div className="flex items-center justify-between text-white/90">
-                        <div className='flex items-center gap-2'>
+                <div className="absolute top-4 w-11/12 md:w-3/4 lg:w-2/3 flex flex-col md:flex-row items-center justify-around gap-4 z-30">
+                    <div className="flex flex-col items-center text-white/90 gap-1">
+                       <div className='flex items-center gap-2'>
                            <Mountain className="h-5 w-5" />
-                           <span className="font-semibold">Height</span>
+                           <span className="font-semibold text-lg">Height</span>
                         </div>
-                        <span className="font-mono">{height.toFixed(0)} ft</span>
+                        <span className="font-mono text-2xl font-bold">{height.toFixed(0)} ft</span>
                     </div>
-                    <div className="flex items-center justify-between text-white/90">
-                         <div className='flex items-center gap-2'>
-                           <Gauge className="h-5 w-5" />
-                           <span className="font-semibold">Danger</span>
-                        </div>
+                    <div className='flex flex-col items-center text-white/90 gap-1'>
+                        <span className="font-semibold text-lg">Danger Level</span>
+                        <GaugeMeter value={dangerLevel} size={120} />
                     </div>
-                     <Progress value={dangerLevel} className="h-2 [&>div]:bg-red-500" indicatorClassName={dangerColor} />
                 </div>
             )}
 
