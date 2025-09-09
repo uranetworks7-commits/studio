@@ -1120,7 +1120,7 @@ export default function TradingDashboard() {
     portfolioComponent: React.ReactNode
   ) => (
     <div className="flex flex-col h-full gap-4">
-      <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-[50vh]">
+      <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-0">
           {animationComponent}
       </div>
       <div className="flex flex-col md:flex-row gap-4">
@@ -1391,11 +1391,13 @@ export default function TradingDashboard() {
               <Plane className="h-5 w-5 text-yellow-400" />
               GoldFly Rules
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-left pt-2 space-y-2">
-              <p>1. Place a bet on whether the plane's final altitude will be UP (above 50) or DOWN (below 50).</p>
-              <p>2. The plane will fly for 5 seconds on a random path.</p>
-              <p>3. If you guess the final position correctly, you win a payout of <strong>{GOLDFLY_PAYOUT_RATE}x</strong> your bet amount.</p>
-              <p>4. If you are incorrect, you lose your bet amount.</p>
+            <AlertDialogDescription asChild>
+                <div className="text-left pt-2 space-y-2 text-sm text-muted-foreground">
+                    <div>1. Place a bet on whether the plane's final altitude will be UP (above 50) or DOWN (below 50).</div>
+                    <div>2. The plane will fly for 5 seconds on a random path.</div>
+                    <div>3. If you guess the final position correctly, you win a payout of <strong>{GOLDFLY_PAYOUT_RATE}x</strong> your bet amount.</div>
+                    <div>4. If you are incorrect, you lose your bet amount.</div>
+                </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1412,12 +1414,14 @@ export default function TradingDashboard() {
                <Rocket className="h-5 w-5 text-destructive" />
                Bit Crash Rules
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-left pt-2 space-y-2">
-              <p>1. Place a bet and watch the gain percentage climb.</p>
-              <p>2. Withdraw your bet at any time before the rocket "blasts" (crashes).</p>
-              <p>3. If you withdraw successfully, you keep your bet plus the gain percentage shown at the moment of withdrawal.</p>
-              <p>4. If the rocket blasts before you withdraw, you lose your entire bet.</p>
-              <p>5. There is an 8% chance of a <strong>Turbo Round</strong>, where the blast only happens between 80-90% gain.</p>
+            <AlertDialogDescription asChild>
+                <div className="text-left pt-2 space-y-2 text-sm text-muted-foreground">
+                    <div>1. Place a bet and watch the gain percentage climb.</div>
+                    <div>2. Withdraw your bet at any time before the rocket "blasts" (crashes).</div>
+                    <div>3. If you withdraw successfully, you keep your bet plus the gain percentage shown at the moment of withdrawal.</div>
+                    <div>4. If the rocket blasts before you withdraw, you lose your entire bet.</div>
+                    <div>5. There is an 8% chance of a <strong>Turbo Round</strong>, where the blast only happens between 80-90% gain.</div>
+                </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
