@@ -72,45 +72,45 @@
 @layer utilities {
   @keyframes projectile-up {
     0% {
-      transform: translate(0, 0);
+      transform: translate(0, 0) rotate(15deg);
     }
     25% {
-      transform: translate(120px, -100px);
+      transform: translate(120px, -100px) rotate(0deg);
     }
     50% {
-      transform: translate(250px, -80px);
+      transform: translate(250px, -80px) rotate(-15deg);
     }
     75% {
-      transform: translate(380px, -120px);
+      transform: translate(380px, -120px) rotate(-25deg);
     }
     100% {
-      transform: translate(500px, -40px);
+      transform: translate(500px, -140px) rotate(-35deg);
     }
   }
 
   @keyframes projectile-down {
     0% {
-      transform: translate(0, 0);
+      transform: translate(0, 0) rotate(-15deg);
     }
     25% {
-      transform: translate(120px, 100px);
+      transform: translate(120px, 100px) rotate(0deg);
     }
     50% {
-      transform: translate(250px, 80px);
+      transform: translate(250px, 80px) rotate(15deg);
     }
     75% {
-      transform: translate(380px, 120px);
+      transform: translate(380px, 120px) rotate(25deg);
     }
     100% {
-      transform: translate(500px, 40px);
+      transform: translate(500px, 140px) rotate(35deg);
     }
   }
 
   .animate-projectile-up {
-    animation: projectile-up 8s ease-in-out forwards;
+    animation: projectile-up 3s ease-in-out forwards;
   }
 
   .animate-projectile-down {
-    animation: projectile-down 8s ease-in-out forwards;
+    animation: projectile-down 3s ease-in-out forwards;
   }
 }

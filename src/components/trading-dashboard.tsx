@@ -408,11 +408,10 @@ export default function TradingDashboard() {
             const container = planeRef.current.parentElement;
             if (!container) return;
 
-            const { top, height } = planeRef.current.getBoundingClientRect();
-            const containerTop = container.getBoundingClientRect().top;
-            
-            // Calculate altitude relative to the container, not the viewport
-            const planeCenterY = (top - containerTop) + height / 2;
+            const planeRect = planeRef.current.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+
+            const planeCenterY = planeRect.top - containerRect.top + planeRect.height / 2;
             const containerHeight = container.clientHeight;
 
             // Invert so higher on screen is higher altitude
@@ -542,6 +541,9 @@ export default function TradingDashboard() {
     setIsTrading(true);
     setGoldFlyBet({ direction, amount: betAmount });
     setGoldFlyState('running');
+    
+    // Deduct bet amount immediately
+    const initialUsdBalance = usdBalance;
     setUsdBalance(prev => prev - betAmount);
     
     setTimeout(() => {
@@ -555,27 +557,27 @@ export default function TradingDashboard() {
              return;
         }
 
-        const { top, height } = planeRef.current.getBoundingClientRect();
-        const containerTop = container.getBoundingClientRect().top;
-        const planeCenterY = (top - containerTop) + height / 2;
-        const containerHeight = container.clientHeight;
-
-        const finalAltitude = 100 - (planeCenterY / containerHeight * 100);
+        const planeRect = planeRef.current.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        const planeCenterY = planeRect.top - containerRect.top + planeRect.height / 2;
+        const finalAltitude = 100 - (planeCenterY / containerRect.height * 100);
+        
         const betLineAltitude = 50;
         
         const isWin = (direction === 'up' && finalAltitude > betLineAltitude) || 
                       (direction === 'down' && finalAltitude < betLineAltitude);
         
-        let newUsdBalance;
+        let finalUsdBalance;
         if (isWin) {
             const winnings = betAmount * GOLDFLY_PAYOUT_RATE;
-            newUsdBalance = usdBalance - betAmount + winnings;
+            finalUsdBalance = initialUsdBalance - betAmount + winnings;
             toast({
                 title: "You Won! 🎉",
                 description: `Your profit is $${(winnings - betAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
             });
         } else {
-            newUsdBalance = usdBalance - betAmount;
+            finalUsdBalance = initialUsdBalance - betAmount;
             toast({
                 title: "You Lost ❌",
                 description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
@@ -584,8 +586,8 @@ export default function TradingDashboard() {
         }
         
         const userRef = ref(db, `users/${username}`);
-        update(userRef, { usdBalance: newUsdBalance });
-        setUsdBalance(newUsdBalance);
+        update(userRef, { usdBalance: finalUsdBalance });
+        setUsdBalance(finalUsdBalance);
         
         setGoldFlyState('finished');
         
@@ -596,7 +598,7 @@ export default function TradingDashboard() {
             form.reset({ amount: values.amount });
         }, 2000);
 
-    }, 8000); // Increased timeout to match animation
+    }, 3000); 
   }
 
   const handleTrade = async (
@@ -1024,7 +1026,7 @@ export default function TradingDashboard() {
                 <Plane className="h-6 w-6 text-yellow-400" />
             </CardTitle>
             <CardDescription>
-                Predict the plane's altitude after 8 seconds.
+                Place Your Bet. Predict the plane's flight path.
             </CardDescription>
           </CardHeader>
           <Form {...form}>
