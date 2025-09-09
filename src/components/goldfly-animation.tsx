@@ -42,6 +42,7 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
 
      useEffect(() => {
         if (gameState === 'running') {
+             setPathData([{ time: 0, alt: 50 }]); // Reset path for new game
             intervalRef.current = setInterval(() => {
                 if (!ref || !(ref as React.RefObject<HTMLDivElement>).current) return;
                 const planeElement = (ref as React.RefObject<HTMLDivElement>).current;
@@ -60,9 +61,8 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
                 setPathData(prev => [...prev, { time: newTime, alt: newAltitude }].slice(-50));
 
             }, 100);
-        } else if (gameState === 'idle') {
-             setPathData([{ time: 0, alt: 50 }]);
-        } else if (gameState === 'finished') {
+        } else if (gameState === 'idle' || gameState === 'finished') {
+            setPathData([{ time: 0, alt: 50 }]);
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
             }
