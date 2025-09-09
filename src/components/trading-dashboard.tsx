@@ -1065,7 +1065,7 @@ export default function TradingDashboard() {
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Value</span>
-                  <span className="text-2xl font-bold font-headline">
+                  <span className="text-xl font-bold font-headline">
                     $
                     {portfolioValue.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
@@ -1133,22 +1133,19 @@ export default function TradingDashboard() {
 
       <div className="flex flex-col gap-6">
         <Card>
-          <CardHeader className="p-4">
-             <CardTitle className="font-headline flex items-center gap-2 text-xl">
+          <CardHeader className="p-2">
+             <CardTitle className="font-headline flex items-center gap-1.5 text-lg">
                 GoldFly
-                <Plane className="h-5 w-5 text-yellow-400" />
+                <Plane className="h-4 w-4 text-yellow-400" />
             </CardTitle>
-            <CardDescription>
-                Place Your Bet. Predict the plane's flight path.
-            </CardDescription>
           </CardHeader>
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-4 p-4 pt-0">
+              <CardContent className="space-y-2 p-2 pt-0">
                  {isGoldFlyLocked && (
-                    <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
-                        <p className="font-bold">GoldFly Mode Disabled</p>
-                        <p className="text-sm">Your USD balance exceeds ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                    <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
+                        <p className="font-bold">GoldFly Disabled</p>
+                        <p className="text-xs">Balance > ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
                     </div>
                  )}
                 <FormField
@@ -1156,7 +1153,7 @@ export default function TradingDashboard() {
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Bet Amount (USD)</FormLabel>
+                      <FormLabel className="text-xs">Bet (USD)</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="100.00"
@@ -1177,7 +1174,7 @@ export default function TradingDashboard() {
                   )}
                 />
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-4 p-4 pt-0">
+              <CardFooter className="grid grid-cols-2 gap-2 p-2 pt-0">
                 <Button
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
                   disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
@@ -1189,7 +1186,7 @@ export default function TradingDashboard() {
                   ) : (
                     <ArrowUp />
                   )}
-                  {goldFlyState === 'finished' ? 'Play Again' : 'Up'}
+                  {goldFlyState === 'finished' ? 'Again' : 'Up'}
                 </Button>
                 <Button
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
@@ -1202,7 +1199,7 @@ export default function TradingDashboard() {
                   ) : (
                     <ArrowDown />
                   )}
-                  {goldFlyState === 'finished' ? 'Play Again' : 'Down'}
+                  {goldFlyState === 'finished' ? 'Again' : 'Down'}
                 </Button>
               </CardFooter>
             </form>
@@ -1210,21 +1207,18 @@ export default function TradingDashboard() {
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
-            <div className="space-y-1.5">
-              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
-              <CardDescription>
-                Your current assets and total value.
-              </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-2">
+            <div className="space-y-0.5">
+              <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-0 p-4">
+          <CardContent className="space-y-2 pt-0 p-2 text-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Landmark className="h-5 w-5 text-primary" />
-                <span>USD Balance</span>
+                <Landmark className="h-4 w-4 text-primary" />
+                <span>USD</span>
               </div>
-              <span>
+              <span className="font-mono">
                 $
                 {usdBalance.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -1251,22 +1245,19 @@ export default function TradingDashboard() {
 
       <div className="flex flex-col gap-6">
         <Card>
-          <CardHeader className="p-4">
-             <CardTitle className="font-headline flex items-center gap-2 text-xl">
+          <CardHeader className="p-2">
+             <CardTitle className="font-headline flex items-center gap-1.5 text-lg">
                 Bit Crash
-                <Rocket className="h-5 w-5 text-destructive" />
+                <Rocket className="h-4 w-4 text-destructive" />
             </CardTitle>
-            <CardDescription>
-                Fly high, but withdraw before you blast!
-            </CardDescription>
           </CardHeader>
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-4 p-4 pt-0">
+              <CardContent className="space-y-2 p-2 pt-0">
                  {isBitCrashLocked && (
-                    <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
+                    <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
                         <p className="font-bold">Bit Crash Disabled</p>
-                        <p className="text-sm">Your USD balance exceeds ${BITCRASH_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                        <p className="text-xs">Balance > ${BITCRASH_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
                     </div>
                  )}
                 <FormField
@@ -1274,7 +1265,7 @@ export default function TradingDashboard() {
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Bet Amount (USD)</FormLabel>
+                      <FormLabel className="text-xs">Bet (USD)</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="100.00"
@@ -1295,7 +1286,7 @@ export default function TradingDashboard() {
                   )}
                 />
               </CardContent>
-              <CardFooter className="p-4 pt-0">
+              <CardFooter className="p-2 pt-0">
                  {bitCrashState === 'running' ? (
                      <Button
                         onClick={handleBitCrashWithdraw}
@@ -1316,7 +1307,7 @@ export default function TradingDashboard() {
                         {isTrading && bitCrashState !== 'running' ? (
                             <Loader2 className="animate-spin mr-2" />
                         ) : (
-                            <Rocket />
+                            <Rocket className="mr-2 h-4 w-4"/>
                         )}
                         {bitCrashState === 'blasted' || bitCrashState === 'withdrawn' ? "Fly Again" : "Fly"}
                     </Button>
@@ -1327,21 +1318,18 @@ export default function TradingDashboard() {
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
-            <div className="space-y-1.5">
-              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
-              <CardDescription>
-                Your current assets and total value.
-              </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-2">
+            <div className="space-y-0.5">
+              <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-0 p-4">
+          <CardContent className="space-y-2 pt-0 p-2 text-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Landmark className="h-5 w-5 text-primary" />
-                <span>USD Balance</span>
+                <Landmark className="h-4 w-4 text-primary" />
+                <span>USD</span>
               </div>
-              <span>
+              <span className="font-mono">
                 $
                 {usdBalance.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
@@ -1411,5 +1399,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    

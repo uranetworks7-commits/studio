@@ -112,13 +112,13 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
 
              {/* Live Status */}
             {gameState === 'running' && (
-                 <div className="absolute top-4 left-4 text-lg font-bold transition-all duration-300 z-20 bg-background/50 px-3 py-1 rounded-md">
+                 <div className="absolute top-2 left-2 text-base font-bold transition-all duration-300 z-20 bg-background/50 px-2 py-0.5 rounded-md">
                     Altitude: {altitude.toFixed(0)}
                  </div>
             )}
              {gameState === 'running' && (
-                 <div className={cn("absolute top-4 flex items-center gap-2 text-xl font-bold transition-all duration-300 z-20", isProfit ? 'text-green-400' : 'text-red-400')}>
-                     {isProfit ? <ThumbsUp/> : <ThumbsDown/>}
+                 <div className={cn("absolute top-2 flex items-center gap-1 text-base font-bold transition-all duration-300 z-20", isProfit ? 'text-green-400' : 'text-red-400')}>
+                     {isProfit ? <ThumbsUp className="h-4 w-4" /> : <ThumbsDown className="h-4 w-4"/>}
                     <span>{isProfit ? 'Profit' : 'Loss'}</span>
                  </div>
             )}
@@ -126,19 +126,19 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
             {/* Initial Text */}
             {gameState === 'idle' && (
                 <div className="text-center text-white/80 z-10">
-                   <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} className="mx-auto" />
+                   <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={60} height={60} className="mx-auto" />
                 </div>
             )}
 
             {gameState === 'running' && (
                  <div ref={ref} className={cn("absolute top-1/2 left-0 z-10", animationClass)} >
-                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={60} height={60} />
                 </div>
             )}
              {gameState === 'finished' && bet && (
                  <div className="text-center text-white/80 z-10">
-                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} className="mx-auto" />
-                    <p className="text-2xl font-headline mt-4">Flight Complete</p>
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={60} height={60} className="mx-auto" />
+                    <p className="text-xl font-headline mt-2">Flight Complete</p>
                 </div>
             )}
         </div>
@@ -146,5 +146,3 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
 });
 
 GoldFlyAnimation.displayName = "GoldFlyAnimation";
-
-    
