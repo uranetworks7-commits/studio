@@ -94,20 +94,20 @@ type PriceRegime = {
 const priceRegimes: Record<PriceRegimeKey, PriceRegime> = {
   LOW: {
       name: "Bearish Market",
-      range: [35000, 55000],
-      leaveProb: 1.0, 
+      range: [35000, 61000],
+      leaveProb: 0.1, 
       next: "MID",
   },
   MID: {
       name: "Market Consolidation",
-      range: [55000, 75000],
+      range: [61000, 75000],
       leaveProb: 0.005, // 0.5% chance to leave
       next: ["LOW", "HIGH"],
   },
   HIGH: {
       name: "Bull Run",
       range: [75000, 120000],
-      leaveProb: 1.0, 
+      leaveProb: 0.1, 
       next: "MID",
   },
 };
