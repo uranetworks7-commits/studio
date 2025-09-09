@@ -434,12 +434,8 @@ export default function TradingDashboard() {
   }, [goldFlyState]);
 
    const handleGoldFlyAnimationComplete = useCallback((altitude: number) => {
-    if (!username || !goldFlyBet) {
-      setIsTrading(false);
-      return;
-    }
     setFinalAltitude(altitude);
-  }, [username, goldFlyBet]);
+  }, []);
   
   useEffect(() => {
     if (finalAltitude === null || !username || !goldFlyBet) return;
@@ -453,7 +449,7 @@ export default function TradingDashboard() {
     let finalUsdBalance;
     if (isWin) {
       const winnings = betAmount * GOLDFLY_PAYOUT_RATE;
-      finalUsdBalance = usdBalance + winnings - betAmount;
+      finalUsdBalance = usdBalance + winnings; // The bet amount was already deducted, so we add the full payout
       toast({
         title: "You Won! 🎉",
         description: `Your profit is $${(winnings - betAmount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
@@ -651,10 +647,10 @@ export default function TradingDashboard() {
             const newGain = prevGain + Math.random() * 0.5;
             
             let blastChance = 0;
-            if (newGain < 25) blastChance = 0.30;
-            else if (newGain < 50) blastChance = 0.60;
-            else if (newGain < 70) blastChance = 0.80;
-            else if (newGain < 90) blastChance = 0.89;
+            if (newGain < 15) blastChance = 0.035;
+            else if (newGain < 30) blastChance = 0.22;
+            else if (newGain < 70) blastChance = 0.43;
+            else if (newGain < 90) blastChance = 0.55;
             else blastChance = 0.99;
 
             if (Math.random() < blastChance / 20) { // Check every 50ms approx
