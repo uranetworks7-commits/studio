@@ -532,6 +532,12 @@ export default function TradingDashboard() {
   const handleGoldFlyTrade = async(values: TradeFormValues, direction: 'up' | 'down') => {
     if (isTrading || !username || !values.amount) return;
 
+    // If game is finished, reset to idle before starting a new one.
+    if (goldFlyState === 'finished') {
+        setGoldFlyState('idle');
+        setGoldFlyBet(null);
+    }
+
     const betAmount = values.amount;
     if (betAmount > usdBalance) {
         toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
@@ -590,13 +596,8 @@ export default function TradingDashboard() {
         setUsdBalance(finalUsdBalance);
         
         setGoldFlyState('finished');
-        
-        setTimeout(() => {
-            setGoldFlyState('idle');
-            setGoldFlyBet(null);
-            setIsTrading(false);
-            form.reset({ amount: values.amount });
-        }, 2000);
+        setIsTrading(false);
+        form.reset({ amount: values.amount });
 
     }, 5000); 
   }
