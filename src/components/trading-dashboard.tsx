@@ -208,7 +208,7 @@ export default function TradingDashboard() {
   const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>("MID");
   const [trend, setTrend] = useState<TrendKey>("SIDEWAYS");
   const trendUpdatesLeft = useRef(0);
-  const [tradeMode, setTradeMode] = useState<TradeMode>("normal");
+  const [tradeMode, setTradeMode] = useState<TradeMode>("normal" | "goldfly" | 'bitcrash');
   
   // GoldFly State
   const [goldFlyState, setGoldFlyState] = useState<'idle' | 'running' | 'finished'>('idle');
@@ -1116,20 +1116,14 @@ export default function TradingDashboard() {
   const renderGameUI = (
     gameType: 'goldfly' | 'bitcrash',
     animationComponent: React.ReactNode,
-    controlsComponent: React.ReactNode,
-    portfolioComponent: React.ReactNode
+    controlsComponent: React.ReactNode
   ) => (
     <div className="flex flex-col h-full gap-2">
       <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-0">
           {animationComponent}
       </div>
-      <div className="flex flex-col md:flex-row gap-2">
-          <div className="w-full md:w-1/2">
-              {controlsComponent}
-          </div>
-          <div className="w-full md:w-1/2">
-              {portfolioComponent}
-          </div>
+      <div className="w-full">
+          {controlsComponent}
       </div>
     </div>
   );
@@ -1137,11 +1131,17 @@ export default function TradingDashboard() {
 
   const goldFlyControls = (
     <Card>
-      <CardHeader className="p-2">
+      <CardHeader className="p-2 flex-row items-center justify-between">
          <CardTitle className="font-headline flex items-center gap-2 text-lg">
             GoldFly
             <Plane className="h-4 w-4 text-yellow-400" />
         </CardTitle>
+         <div className="flex items-center gap-2 text-sm">
+            <Landmark className="h-4 w-4 text-primary" />
+            <span className="font-mono text-sm">
+                ${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+        </div>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()}>
@@ -1219,11 +1219,17 @@ export default function TradingDashboard() {
 
   const bitCrashControls = (
     <Card>
-      <CardHeader className="p-2">
+      <CardHeader className="p-2 flex-row items-center justify-between">
          <CardTitle className="font-headline flex items-center gap-2 text-lg">
             Bit Crash
             <Rocket className="h-4 w-4 text-destructive" />
         </CardTitle>
+        <div className="flex items-center gap-2 text-sm">
+            <Landmark className="h-4 w-4 text-primary" />
+            <span className="font-mono text-sm">
+                ${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+        </div>
       </CardHeader>
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()}>
@@ -1298,29 +1304,6 @@ export default function TradingDashboard() {
     </Card>
   );
 
-  const gamePortfolio = (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-1 p-2">
-        <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-1 p-2 pt-0">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Landmark className="h-4 w-4 text-primary" />
-            <span>USD</span>
-          </div>
-          <span className="font-mono text-sm">
-            $
-            {usdBalance.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   return (
     <div className="flex flex-col h-screen max-h-screen bg-background">
       <header className="p-2 border-b flex justify-between items-center shrink-0">
@@ -1370,8 +1353,7 @@ export default function TradingDashboard() {
                         altitude={goldFlyAltitude}
                         onAnimationComplete={handleGoldFlyAnimationComplete}
                     />,
-                    goldFlyControls,
-                    gamePortfolio
+                    goldFlyControls
                  )}
             </TabsContent>
              <TabsContent value="bitcrash" className="flex-grow">
@@ -1382,12 +1364,13 @@ export default function TradingDashboard() {
                         gainPercent={gainPercent}
                         isTurboRound={isTurboRound}
                     />,
-                    bitCrashControls,
-                    gamePortfolio
+                    bitCrashControls
                  )}
             </TabsContent>
         </Tabs>
       </main>
+      <div className="h-4 bg-black w-full shrink-0" />
+
 
        {/* GoldFly Rules Dialog */}
       <AlertDialog open={isGoldFlyRulesOpen} onOpenChange={setIsGoldFlyRulesOpen}>
@@ -1439,3 +1422,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
