@@ -219,6 +219,7 @@ export default function TradingDashboard() {
   // BitCrash State
   const [bitCrashState, setBitCrashState] = useState<'idle' | 'running' | 'blasted' | 'withdrawn'>('idle');
   const [gainPercent, setGainPercent] = useState(0);
+  const [isTurboRound, setIsTurboRound] = useState(false);
   const [blastToast, setBlastToast] = useState(false);
   const bitCrashIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -622,6 +623,7 @@ export default function TradingDashboard() {
      if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
       setBitCrashState('blasted');
       setIsTrading(false);
+      setIsTurboRound(false);
       setBlastToast(true);
   }, []);
 
@@ -648,16 +650,34 @@ export default function TradingDashboard() {
         setBitCrashState('running');
         setGainPercent(0);
 
+        const isTurbo = Math.random() < 0.08;
+        setIsTurboRound(isTurbo);
+        if (isTurbo) {
+          toast({
+            title: "🚀 Turbo Round! 🚀",
+            description: "The rocket is supercharged! Blast zone is between 80% and 90% gain.",
+          });
+        }
+
         bitCrashIntervalRef.current = setInterval(() => {
             setGainPercent(prevGain => {
                 const newGain = prevGain + Math.random() * 0.5;
                 
                 let blastChance = 0;
-                if (newGain < 15) blastChance = 0.035;
-                else if (newGain < 30) blastChance = 0.22;
-                else if (newGain < 70) blastChance = 0.43;
-                else if (newGain < 90) blastChance = 0.55;
-                else blastChance = 0.99;
+                
+                if (isTurbo) {
+                    if (newGain > 80 && newGain < 90) {
+                        blastChance = 0.25; // High chance to blast within the turbo zone
+                    } else if (newGain >= 90) {
+                        blastChance = 1; // Guaranteed blast after 90
+                    }
+                } else {
+                    if (newGain < 15) blastChance = 0.035;
+                    else if (newGain < 30) blastChance = 0.22;
+                    else if (newGain < 70) blastChance = 0.43;
+                    else if (newGain < 90) blastChance = 0.55;
+                    else blastChance = 0.99;
+                }
 
                 if (Math.random() < blastChance / 20) { // Check every 50ms approx
                     handleBitCrashBlast();
@@ -688,6 +708,7 @@ export default function TradingDashboard() {
         description: `You secured a profit of $${profit.toFixed(2)} at ${gainPercent.toFixed(2)}% gain.`
     });
     setIsTrading(false);
+    setIsTurboRound(false);
   }
 
   const handleTrade = async (
@@ -1219,6 +1240,7 @@ export default function TradingDashboard() {
         <BitCrashAnimation
           gameState={bitCrashState}
           gainPercent={gainPercent}
+          isTurboRound={isTurboRound}
         />
       </div>
 
@@ -1383,3 +1405,4 @@ export default function TradingDashboard() {
 }
 
     
+

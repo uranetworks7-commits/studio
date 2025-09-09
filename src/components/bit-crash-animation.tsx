@@ -5,15 +5,16 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer } from 'recharts';
-import { Mountain } from 'lucide-react';
+import { Mountain, Zap } from 'lucide-react';
 import { GaugeMeter } from './ui/gauge-meter';
 
 interface BitCrashAnimationProps {
     gameState: 'idle' | 'running' | 'blasted' | 'withdrawn';
     gainPercent: number;
+    isTurboRound: boolean;
 }
 
-export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationProps>(({ gameState, gainPercent }, ref) => {
+export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationProps>(({ gameState, gainPercent, isTurboRound }, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const planeRef = useRef<HTMLDivElement>(null);
     const [pathData, setPathData] = useState([{ time: 0, alt: 0 }]);
@@ -67,6 +68,12 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
         <div ref={containerRef} className="w-full h-full bg-blue-900/20 rounded-lg flex items-center justify-center relative overflow-hidden">
             
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
+                 {isTurboRound && gameState === 'running' && (
+                    <div className="absolute top-4 right-4 flex items-center gap-2 bg-yellow-400/20 text-yellow-300 px-3 py-1 rounded-full border border-yellow-400">
+                        <Zap className="h-5 w-5" />
+                        <span className="font-bold">TURBO ROUND</span>
+                    </div>
+                )}
                 {gameState === 'running' && (
                     <div className="text-center">
                         <p className="text-5xl font-bold text-white drop-shadow-lg">{gainPercent.toFixed(2)}%</p>
@@ -131,3 +138,4 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
 });
 
 BitCrashAnimation.displayName = "BitCrashAnimation";
+
