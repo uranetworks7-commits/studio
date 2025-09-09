@@ -208,7 +208,7 @@ export default function TradingDashboard() {
   const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>("MID");
   const [trend, setTrend] = useState<TrendKey>("SIDEWAYS");
   const trendUpdatesLeft = useRef(0);
-  const [tradeMode, setTradeMode] = useState<TradeMode>("normal" | "goldfly" | 'bitcrash');
+  const [tradeMode, setTradeMode] = useState<TradeMode>('normal');
   
   // GoldFly State
   const [goldFlyState, setGoldFlyState] = useState<'idle' | 'running' | 'finished'>('idle');
