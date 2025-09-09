@@ -3,19 +3,9 @@
 
 import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer, ReferenceLine } from 'recharts';
-
-const PrivatePlaneIcon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        viewBox="0 0 512 512" 
-        fill="currentColor"
-        {...props}
-    >
-        <path d="M21.43,13.23l-6.3-6.3a2.5,2.5,0,0,0-4.24,0L2.77,15.05a2,2,0,0,0,0,2.82L4,19.17l3.77-3.76,5.3,5.3,3.77-3.77,1.41,1.41a2,2,0,0,0,2.83,0l.35-.35A2.5,2.5,0,0,0,21.43,13.23Z"/>
-    </svg>
-);
-  
 
 interface GoldFlyAnimationProps {
     gameState: 'idle' | 'running' | 'finished';
@@ -96,28 +86,32 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
 
              {/* Live Status */}
             {gameState === 'running' && (
-                 <div className={cn("absolute top-4 text-2xl font-bold transition-all duration-300 z-20", isProfit ? 'text-green-400' : 'text-red-400')}>
-                    {isProfit ? 'You Are in Profit' : 'You Are in Loss'}
+                 <div className="absolute top-4 left-4 text-lg font-bold transition-all duration-300 z-20 bg-background/50 px-3 py-1 rounded-md">
+                    Altitude: {altitude.toFixed(0)}
+                 </div>
+            )}
+             {gameState === 'running' && (
+                 <div className={cn("absolute top-4 flex items-center gap-2 text-xl font-bold transition-all duration-300 z-20", isProfit ? 'text-green-400' : 'text-red-400')}>
+                     {isProfit ? <ThumbsUp/> : <ThumbsDown/>}
+                    <span>{isProfit ? 'Profit' : 'Loss'}</span>
                  </div>
             )}
             
             {/* Initial Text */}
             {gameState === 'idle' && (
                 <div className="text-center text-white/80 z-10">
-                    <PrivatePlaneIcon className="h-24 w-24 mx-auto text-yellow-400" />
+                   <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} className="mx-auto" />
                 </div>
             )}
 
             {gameState === 'running' && (
                  <div ref={ref} className={cn("absolute top-1/2 left-0 z-10", animationClass)} >
-                    <PrivatePlaneIcon
-                        className="w-16 h-16 text-yellow-400"
-                    />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} />
                 </div>
             )}
              {gameState === 'finished' && bet && (
                  <div className="text-center text-white/80 z-10">
-                    <PrivatePlaneIcon className="h-24 w-24 mx-auto text-yellow-400" />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} className="mx-auto" />
                     <p className="text-2xl font-headline mt-4">Flight Complete</p>
                 </div>
             )}

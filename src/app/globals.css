@@ -107,10 +107,10 @@
   }
 
   .animate-projectile-up {
-    animation: projectile-up 3s ease-in-out forwards;
+    animation: projectile-up 5s ease-in-out forwards;
   }
 
   .animate-projectile-down {
-    animation: projectile-down 3s ease-in-out forwards;
+    animation: projectile-down 5s ease-in-out forwards;
   }
 }

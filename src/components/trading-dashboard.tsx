@@ -598,7 +598,7 @@ export default function TradingDashboard() {
             form.reset({ amount: values.amount });
         }, 2000);
 
-    }, 3000); 
+    }, 5000); 
   }
 
   const handleTrade = async (
