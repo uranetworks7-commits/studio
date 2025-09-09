@@ -75,6 +75,7 @@ const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
 const EXTREME_MODE_THRESHOLD = 1_000_000;
 const GOLDFLY_LOCKOUT_THRESHOLD = 10_000_000;
+const BITCRASH_LOCKOUT_THRESHOLD = 25_000_000;
 const GOLDFLY_PAYOUT_RATE = 1.4; // 1.4x payout
 
 interface PriceData {
@@ -407,6 +408,7 @@ export default function TradingDashboard() {
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
   const isGoldFlyLocked = usdBalance > GOLDFLY_LOCKOUT_THRESHOLD;
+  const isBitCrashLocked = usdBalance > BITCRASH_LOCKOUT_THRESHOLD;
 
 
   // Altitude tracker for GoldFly
@@ -1234,6 +1236,12 @@ export default function TradingDashboard() {
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
               <CardContent className="space-y-4">
+                 {isBitCrashLocked && (
+                    <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
+                        <p className="font-bold">Bit Crash Disabled</p>
+                        <p className="text-sm">Your USD balance exceeds ${BITCRASH_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                    </div>
+                 )}
                 <FormField
                   control={form.control}
                   name="amount"
@@ -1246,7 +1254,7 @@ export default function TradingDashboard() {
                           {...field}
                           type="number"
                           step="0.01"
-                          disabled={isTrading}
+                          disabled={isTrading || isBitCrashLocked}
                           onChange={(e) => {
                             const value = e.target.value;
                             field.onChange(value === "" ? undefined : Number(value));
@@ -1272,10 +1280,10 @@ export default function TradingDashboard() {
                  ) : (
                     <Button
                         onClick={form.handleSubmit(handleBitCrashFly)}
-                        disabled={isTrading}
+                        disabled={isTrading || isBitCrashLocked}
                         className="w-full"
                     >
-                        {isTrading ? (
+                        {isTrading && bitCrashState !== 'running' ? (
                             <Loader2 className="animate-spin mr-2" />
                         ) : (
                             <Rocket />
