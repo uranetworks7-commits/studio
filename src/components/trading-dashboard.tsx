@@ -12,6 +12,7 @@ import {
   Loader2,
   LogOut,
   Monitor,
+  Plane,
   Smartphone,
   ThumbsUp,
   User,
@@ -47,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useViewport } from "@/context/viewport-context";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
@@ -54,6 +56,7 @@ import { get, ref, update } from "firebase/database";
 import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
 import { Separator } from "./ui/separator";
+import { GoldFlyAnimation } from "./goldfly-animation";
 
 const formSchema = z.object({
   amount: z.coerce
@@ -68,6 +71,8 @@ const INITIAL_PRICE = 65000;
 const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
 const EXTREME_MODE_THRESHOLD = 1_000_000;
+const GOLDFLY_LOCKOUT_THRESHOLD = 10_000_000;
+const GOLDFLY_PAYOUT_RATE = 1.8; // 1.8x payout
 
 interface PriceData {
   time: string;
@@ -77,6 +82,7 @@ interface PriceData {
 
 type PriceRegimeKey = "LOW" | "MID" | "HIGH";
 type TrendKey = "UP" | "DOWN" | "SIDEWAYS";
+type TradeMode = "normal" | "goldfly";
 
 type PriceRegime = {
   name: string;
@@ -197,6 +203,14 @@ export default function TradingDashboard() {
   const [priceRegime, setPriceRegime] = useState<PriceRegimeKey>("MID");
   const [trend, setTrend] = useState<TrendKey>("SIDEWAYS");
   const trendUpdatesLeft = useRef(0);
+  const [tradeMode, setTradeMode] = useState<TradeMode>("normal");
+  
+  // GoldFly State
+  const [goldFlyState, setGoldFlyState] = useState<'idle' | 'running' | 'finished'>('idle');
+  const [goldFlyBet, setGoldFlyBet] = useState<{direction: 'up' | 'down', amount: number} | null>(null);
+  const [goldFlyAltitude, setGoldFlyAltitude] = useState(0);
+  const planeRef = useRef<HTMLDivElement>(null);
+
 
   const { toast } = useToast();
   const { isDesktopView, setIsDesktopView, isMobile } = useViewport();
@@ -267,7 +281,7 @@ export default function TradingDashboard() {
   }, [handleUserLogin]);
 
   useEffect(() => {
-    if (!username || isLoading) return;
+    if (!username || isLoading || tradeMode !== 'normal') return;
   
     const updatePrice = () => {
       setCurrentPrice((prevPrice) => {
@@ -379,26 +393,47 @@ export default function TradingDashboard() {
       if (priceUpdateTimeoutRef.current)
         clearTimeout(priceUpdateTimeoutRef.current);
     };
-  }, [username, isLoading]);
+  }, [username, isLoading, tradeMode]);
 
   const portfolioValue = usdBalance + btcBalance * currentPrice;
+  const isGoldFlyLocked = portfolioValue > GOLDFLY_LOCKOUT_THRESHOLD;
+
+
+  // Altitude tracker for GoldFly
+  useEffect(() => {
+    if (goldFlyState !== 'running') return;
+
+    const interval = setInterval(() => {
+        if (planeRef.current) {
+            const { top, height } = planeRef.current.getBoundingClientRect();
+            // Invert so higher on screen is higher altitude
+            const newAltitude = window.innerHeight - (top + height / 2);
+            setGoldFlyAltitude(newAltitude);
+        }
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [goldFlyState]);
+
 
   useEffect(() => {
     const mode = portfolioValue >= EXTREME_MODE_THRESHOLD;
     if (mode !== isExtremeMode) {
       setIsExtremeMode(mode);
-      toast({
-        title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
-        description: mode
-          ? "Your portfolio is over $1M. Trading rules have changed."
-          : "Your portfolio is below $1M. Standard trading rules apply.",
-        variant: mode ? "destructive" : "default",
-      });
+      if (tradeMode === 'normal') {
+          toast({
+            title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
+            description: mode
+              ? "Your portfolio is over $1M. Trading rules have changed."
+              : "Your portfolio is below $1M. Standard trading rules apply.",
+            variant: mode ? "destructive" : "default",
+          });
+      }
     }
-  }, [portfolioValue, isExtremeMode, toast]);
+  }, [portfolioValue, isExtremeMode, toast, tradeMode]);
 
   useEffect(() => {
-    if (!username) return;
+    if (!username || tradeMode !== 'normal') return;
 
     const newTime = new Date();
     const newEntry: PriceData = {
@@ -453,7 +488,7 @@ export default function TradingDashboard() {
     };
     const timeoutId = setTimeout(savePrice, 1000); 
     return () => clearTimeout(timeoutId);
-  }, [currentPrice, chartType, username]);
+  }, [currentPrice, chartType, username, tradeMode]);
 
   const handleLogout = async () => {
     if (username) {
@@ -485,6 +520,62 @@ export default function TradingDashboard() {
       description: "Thank you for your feedback!",
     });
   };
+  
+  const handleGoldFlyTrade = async(values: TradeFormValues, direction: 'up' | 'down') => {
+    if (isTrading || !username || !values.amount) return;
+
+    const betAmount = values.amount;
+    if (betAmount > usdBalance) {
+        toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
+        return;
+    }
+    
+    setIsTrading(true);
+    setGoldFlyBet({ direction, amount: betAmount });
+    setGoldFlyState('running');
+    
+    setTimeout(() => {
+        if (!planeRef.current) return;
+        
+        const finalAltitude = window.innerHeight - (planeRef.current.getBoundingClientRect().top + planeRef.current.getBoundingClientRect().height / 2);
+        
+        // This is where the 66% chance logic is decided for the animation path
+        // The actual win condition is visual
+        const isWin = goldFlyAltitude > window.innerHeight / 2 ? 
+            direction === 'up' : 
+            direction === 'down';
+        
+        let newUsdBalance;
+        if (isWin) {
+            newUsdBalance = usdBalance + betAmount * (GOLDFLY_PAYOUT_RATE - 1);
+            toast({
+                title: "You Won! 🎉",
+                description: `Your profit is $${(betAmount * (GOLDFLY_PAYOUT_RATE - 1)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            });
+        } else {
+            newUsdBalance = usdBalance - betAmount;
+            toast({
+                title: "You Lost ❌",
+                description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                variant: 'destructive'
+            });
+        }
+        
+        const userRef = ref(db, `users/${username}`);
+        update(userRef, { usdBalance: newUsdBalance });
+        setUsdBalance(newUsdBalance);
+        
+        setGoldFlyState('finished');
+        setIsTrading(false);
+        form.reset({ amount: values.amount });
+        
+        setTimeout(() => {
+            setGoldFlyState('idle');
+            setGoldFlyBet(null);
+        }, 2000);
+
+    }, 5000);
+  }
 
   const handleTrade = async (
     values: TradeFormValues,
@@ -678,6 +769,336 @@ export default function TradingDashboard() {
     );
   }
 
+  const renderNormalTradeUI = () => (
+    <>
+      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+        <PriceChart
+          data={priceHistory}
+          currentPrice={currentPrice}
+          chartType={chartType}
+        />
+      </div>
+
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="font-headline flex items-center gap-2">
+                {isExtremeMode ? (
+                  <>
+                    Place Bet
+                    <Zap className="h-5 w-5 text-destructive" />
+                  </>
+                ) : (
+                  <>
+                    New Trade
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
+                      <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
+                    </svg>
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {isExtremeMode
+                  ? "Enter Heavy Ammount."
+                  : "Buy or sell Bitcoin."}
+              </CardDescription>
+            </div>
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setIsDesktopView(!isDesktopView)}
+              >
+                {isDesktopView ? <Smartphone /> : <Monitor />}
+              </Button>
+            )}
+          </CardHeader>
+          <Form {...form}>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {isExtremeMode
+                          ? "Bet Amount (USD)"
+                          : "Amount (USD)"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="100.00"
+                          {...field}
+                          type="number"
+                          step="0.01"
+                          disabled={isTrading}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? undefined : Number(value));
+                          }}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {!isExtremeMode && (
+                  <FormItem>
+                    <FormLabel>Chart Type</FormLabel>
+                    <Select
+                      onValueChange={(value: "area" | "candlestick") =>
+                        setChartType(value)
+                      }
+                      defaultValue={chartType}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select chart type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="area">Area</SelectItem>
+                        <SelectItem value="candlestick">
+                          Candlestick
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              </CardContent>
+              <CardFooter className="grid grid-cols-2 gap-4">
+                <Button
+                  onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
+                  disabled={isTrading}
+                >
+                  {isTrading && !isExtremeMode ? (
+                    <Loader2 className="animate-spin mr-2" />
+                  ) : (
+                    <ArrowUp />
+                  )}
+                  {isExtremeMode
+                    ? isTrading
+                      ? "Placing Bet..."
+                      : "Place Bet"
+                    : isTrading
+                    ? "Buying..."
+                    : "Buy"}
+                </Button>
+                <Button
+                  onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
+                  variant="destructive"
+                  disabled={isTrading || isExtremeMode}
+                >
+                  {isTrading ? (
+                    <Loader2 className="animate-spin mr-2" />
+                  ) : (
+                    <ArrowDown />
+                  )}
+                  {isTrading ? "Selling..." : "Sell"}
+                </Button>
+              </CardFooter>
+            </form>
+          </Form>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-1.5">
+              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardDescription>
+                Your current assets and total value.
+              </CardDescription>
+            </div>
+            <Link href="/about" passHref>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">About</span>
+              </Button>
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {typeof usdBalance === "number" &&
+            typeof btcBalance === "number" ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Total Value</span>
+                  <span className="text-2xl font-bold font-headline">
+                    $
+                    {portfolioValue.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="h-5 w-5 text-primary" />
+                    <span>USD Balance</span>
+                  </div>
+                  <span>
+                    $
+                    {usdBalance.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bitcoin className="h-5 w-5 text-primary" />
+                    <span>BTC Balance</span>
+                  </div>
+                  <span>{btcBalance.toFixed(8)}</span>
+                </div>
+                {!isExtremeMode && (
+                    <>
+                    <Separator />
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                            <ArrowRightLeft className="h-4 w-4" />
+                            <span>Today's P/L</span>
+                        </div>
+                        <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                            ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                    </>
+                )}
+              </>
+            ) : (
+              <div className="flex justify-center items-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+  
+  const renderGoldFlyUI = () => (
+    <>
+      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+        <GoldFlyAnimation 
+            ref={planeRef}
+            gameState={goldFlyState} 
+            bet={goldFlyBet} 
+            altitude={goldFlyAltitude}
+        />
+      </div>
+
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardHeader>
+             <CardTitle className="font-headline flex items-center gap-2">
+                GoldFly
+                <Plane className="h-6 w-6 text-yellow-400" />
+            </CardTitle>
+            <CardDescription>
+                Predict the plane's altitude after 5 seconds.
+            </CardDescription>
+          </CardHeader>
+          <Form {...form}>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <CardContent className="space-y-4">
+                 {isGoldFlyLocked && (
+                    <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
+                        <p className="font-bold">GoldFly Mode Disabled</p>
+                        <p className="text-sm">Your portfolio exceeds ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                    </div>
+                 )}
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bet Amount (USD)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="100.00"
+                          {...field}
+                          type="number"
+                          step="0.01"
+                          disabled={isTrading || isGoldFlyLocked}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? undefined : Number(value));
+                          }}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardFooter className="grid grid-cols-2 gap-4">
+                <Button
+                  onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
+                  disabled={isTrading || isGoldFlyLocked}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isTrading && goldFlyBet?.direction === 'up' ? (
+                    <Loader2 className="animate-spin mr-2" />
+                  ) : (
+                    <ArrowUp />
+                  )}
+                  Up
+                </Button>
+                <Button
+                  onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
+                  variant="destructive"
+                  disabled={isTrading || isGoldFlyLocked}
+                >
+                  {isTrading && goldFlyBet?.direction === 'down' ? (
+                    <Loader2 className="animate-spin mr-2" />
+                  ) : (
+                    <ArrowDown />
+                  )}
+                  Down
+                </Button>
+              </CardFooter>
+            </form>
+          </Form>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-1.5">
+              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardDescription>
+                Your current assets and total value.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Landmark className="h-5 w-5 text-primary" />
+                <span>USD Balance</span>
+              </div>
+              <span>
+                $
+                {usdBalance.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
+    </>
+  )
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
@@ -685,12 +1106,12 @@ export default function TradingDashboard() {
           <h1 className="text-2xl font-headline font-bold text-primary">
             URA Trade
           </h1>
-          <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
+          {tradeMode === 'normal' && <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
             <span>Market:</span>
             <span className="font-bold text-foreground">
               {priceRegime === 'MID' ? `${trendRef.current} Trend` : priceRegimes[priceRegime].name}
             </span>
-          </div>
+          </div>}
         </div>
         {username && (
           <div className="flex items-center gap-4">
@@ -708,217 +1129,22 @@ export default function TradingDashboard() {
         )}
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
-            <PriceChart
-              data={priceHistory}
-              currentPrice={currentPrice}
-              chartType={chartType}
-            />
-          </div>
-
-          <div className="flex flex-col gap-6">
-            <Card>
-              <CardHeader className="flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="font-headline flex items-center gap-2">
-                    {isExtremeMode ? (
-                      <>
-                        Place Bet
-                        <Zap className="h-5 w-5 text-destructive" />
-                      </>
-                    ) : (
-                      <>
-                        New Trade
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
-                          <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
-                        </svg>
-                      </>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    {isExtremeMode
-                      ? "Enter Heavy Ammount."
-                      : "Buy or sell Bitcoin."}
-                  </CardDescription>
+        <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-sm mx-auto mb-4">
+                <TabsTrigger value="normal">Normal</TabsTrigger>
+                <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
+            </TabsList>
+            <TabsContent value="normal">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                    {renderNormalTradeUI()}
                 </div>
-                {isMobile && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsDesktopView(!isDesktopView)}
-                  >
-                    {isDesktopView ? <Smartphone /> : <Monitor />}
-                  </Button>
-                )}
-              </CardHeader>
-              <Form {...form}>
-                <form onSubmit={(e) => e.preventDefault()}>
-                  <CardContent className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>
-                            {isExtremeMode
-                              ? "Bet Amount (USD)"
-                              : "Amount (USD)"}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="100.00"
-                              {...field}
-                              type="number"
-                              step="0.01"
-                              disabled={isTrading}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                field.onChange(value === "" ? undefined : Number(value));
-                              }}
-                              value={field.value ?? ""}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    {!isExtremeMode && (
-                      <FormItem>
-                        <FormLabel>Chart Type</FormLabel>
-                        <Select
-                          onValueChange={(value: "area" | "candlestick") =>
-                            setChartType(value)
-                          }
-                          defaultValue={chartType}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select chart type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="area">Area</SelectItem>
-                            <SelectItem value="candlestick">
-                              Candlestick
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  </CardContent>
-                  <CardFooter className="grid grid-cols-2 gap-4">
-                    <Button
-                      onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
-                      disabled={isTrading}
-                    >
-                      {isTrading && !isExtremeMode ? (
-                        <Loader2 className="animate-spin mr-2" />
-                      ) : (
-                        <ArrowUp />
-                      )}
-                      {isExtremeMode
-                        ? isTrading
-                          ? "Placing Bet..."
-                          : "Place Bet"
-                        : isTrading
-                        ? "Buying..."
-                        : "Buy"}
-                    </Button>
-                    <Button
-                      onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
-                      variant="destructive"
-                      disabled={isTrading || isExtremeMode}
-                    >
-                      {isTrading ? (
-                        <Loader2 className="animate-spin mr-2" />
-                      ) : (
-                        <ArrowDown />
-                      )}
-                      {isTrading ? "Selling..." : "Sell"}
-                    </Button>
-                  </CardFooter>
-                </form>
-              </Form>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div className="space-y-1.5">
-                  <CardTitle className="font-headline">Portfolio</CardTitle>
-                  <CardDescription>
-                    Your current assets and total value.
-                  </CardDescription>
+            </TabsContent>
+            <TabsContent value="goldfly">
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                    {renderGoldFlyUI()}
                 </div>
-                <Link href="/about" passHref>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Info className="h-4 w-4" />
-                    <span className="sr-only">About</span>
-                  </Button>
-                </Link>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
-                {typeof usdBalance === "number" &&
-                typeof btcBalance === "number" ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Total Value</span>
-                      <span className="text-2xl font-bold font-headline">
-                        $
-                        {portfolioValue.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Landmark className="h-5 w-5 text-primary" />
-                        <span>USD Balance</span>
-                      </div>
-                      <span>
-                        $
-                        {usdBalance.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bitcoin className="h-5 w-5 text-primary" />
-                        <span>BTC Balance</span>
-                      </div>
-                      <span>{btcBalance.toFixed(8)}</span>
-                    </div>
-                    {!isExtremeMode && (
-                        <>
-                        <Separator />
-                        <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <ArrowRightLeft className="h-4 w-4" />
-                                <span>Today's P/L</span>
-                            </div>
-                            <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
-                                ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                        </div>
-                        </>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex justify-center items-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
