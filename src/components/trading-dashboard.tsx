@@ -1121,7 +1121,7 @@ export default function TradingDashboard() {
   
   const renderGoldFlyUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[30vh] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[240px] md:min-h-[50vh] lg:min-h-0">
         <GoldFlyAnimation 
             ref={planeRef}
             gameState={goldFlyState} 
@@ -1133,7 +1133,7 @@ export default function TradingDashboard() {
 
       <div className="flex flex-col gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="p-4">
              <CardTitle className="font-headline flex items-center gap-2 text-xl">
                 GoldFly
                 <Plane className="h-5 w-5 text-yellow-400" />
@@ -1144,7 +1144,7 @@ export default function TradingDashboard() {
           </CardHeader>
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 pt-0">
                  {isGoldFlyLocked && (
                     <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
                         <p className="font-bold">GoldFly Mode Disabled</p>
@@ -1177,7 +1177,7 @@ export default function TradingDashboard() {
                   )}
                 />
               </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-4">
+              <CardFooter className="grid grid-cols-2 gap-4 p-4 pt-0">
                 <Button
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
                   disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
@@ -1210,7 +1210,7 @@ export default function TradingDashboard() {
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
             <div className="space-y-1.5">
               <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
               <CardDescription>
@@ -1218,7 +1218,7 @@ export default function TradingDashboard() {
               </CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardContent className="space-y-4 pt-0 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Landmark className="h-5 w-5 text-primary" />
@@ -1241,7 +1241,7 @@ export default function TradingDashboard() {
 
   const renderBitCrashUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[30vh] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[240px] md:min-h-[50vh] lg:min-h-0">
         <BitCrashAnimation
           gameState={bitCrashState}
           gainPercent={gainPercent}
@@ -1251,7 +1251,7 @@ export default function TradingDashboard() {
 
       <div className="flex flex-col gap-6">
         <Card>
-          <CardHeader>
+          <CardHeader className="p-4">
              <CardTitle className="font-headline flex items-center gap-2 text-xl">
                 Bit Crash
                 <Rocket className="h-5 w-5 text-destructive" />
@@ -1262,7 +1262,7 @@ export default function TradingDashboard() {
           </CardHeader>
           <Form {...form}>
             <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 pt-0">
                  {isBitCrashLocked && (
                     <div className="p-4 rounded-md bg-destructive/20 text-center text-destructive-foreground">
                         <p className="font-bold">Bit Crash Disabled</p>
@@ -1295,7 +1295,7 @@ export default function TradingDashboard() {
                   )}
                 />
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-4 pt-0">
                  {bitCrashState === 'running' ? (
                      <Button
                         onClick={handleBitCrashWithdraw}
@@ -1327,7 +1327,7 @@ export default function TradingDashboard() {
         </Card>
         
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
             <div className="space-y-1.5">
               <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
               <CardDescription>
@@ -1335,7 +1335,7 @@ export default function TradingDashboard() {
               </CardDescription>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
+          <CardContent className="space-y-4 pt-0 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Landmark className="h-5 w-5 text-primary" />
@@ -1384,7 +1384,7 @@ export default function TradingDashboard() {
           </div>
         )}
       </header>
-      <main className="flex-grow p-4 md:p-8 overflow-auto">
+      <main className="flex-grow p-2 md:p-6 overflow-auto">
         <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
@@ -1411,3 +1411,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    

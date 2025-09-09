@@ -126,18 +126,18 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
             {/* Initial Text */}
             {gameState === 'idle' && (
                 <div className="text-center text-white/80 z-10">
-                   <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} className="mx-auto" />
+                   <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} className="mx-auto" />
                 </div>
             )}
 
             {gameState === 'running' && (
                  <div ref={ref} className={cn("absolute top-1/2 left-0 z-10", animationClass)} >
-                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} />
                 </div>
             )}
              {gameState === 'finished' && bet && (
                  <div className="text-center text-white/80 z-10">
-                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} className="mx-auto" />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} className="mx-auto" />
                     <p className="text-2xl font-headline mt-4">Flight Complete</p>
                 </div>
             )}
@@ -146,3 +146,5 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
 });
 
 GoldFlyAnimation.displayName = "GoldFlyAnimation";
+
+    

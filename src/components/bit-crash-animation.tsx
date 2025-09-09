@@ -69,46 +69,46 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
             
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none">
                  {isTurboRound && gameState === 'running' && (
-                    <div className="absolute top-4 right-4 flex items-center gap-2 bg-yellow-400/20 text-yellow-300 px-3 py-1 rounded-full border border-yellow-400">
-                        <Zap className="h-5 w-5" />
-                        <span className="font-bold">TURBO ROUND</span>
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full border border-yellow-400 text-xs">
+                        <Zap className="h-4 w-4" />
+                        <span className="font-bold">TURBO</span>
                     </div>
                 )}
                 {gameState === 'running' && (
                     <div className="text-center">
-                        <p className="text-5xl font-bold text-white drop-shadow-lg">{gainPercent.toFixed(2)}%</p>
-                        <p className="text-lg text-white/80">Gain</p>
+                        <p className="text-4xl md:text-5xl font-bold text-white drop-shadow-lg">{gainPercent.toFixed(2)}%</p>
+                        <p className="text-base md:text-lg text-white/80">Gain</p>
                     </div>
                 )}
                 {gameState === 'idle' && (
                     <div className="text-center text-white/80">
-                        <p className="text-3xl font-headline">Prepare for Liftoff</p>
+                        <p className="text-2xl md:text-3xl font-headline">Prepare for Liftoff</p>
                     </div>
                 )}
                  {gameState === 'blasted' && (
                     <div className="text-center text-white/80">
-                        <p className="text-5xl font-bold text-destructive drop-shadow-lg">BLASTED!</p>
+                        <p className="text-4xl md:text-5xl font-bold text-destructive drop-shadow-lg">BLASTED!</p>
                     </div>
                 )}
                  {gameState === 'withdrawn' && (
                     <div className="text-center text-white/80">
-                         <p className="text-5xl font-bold text-green-400 drop-shadow-lg">Withdrawn!</p>
-                        <p className="text-2xl text-green-400/80">Profit: {gainPercent.toFixed(2)}%</p>
+                         <p className="text-4xl md:text-5xl font-bold text-green-400 drop-shadow-lg">Withdrawn!</p>
+                        <p className="text-xl md:text-2xl text-green-400/80">Profit: {gainPercent.toFixed(2)}%</p>
                     </div>
                 )}
             </div>
              {gameState === 'running' && (
-                <div className="absolute top-4 w-11/12 md:w-3/4 lg:w-2/3 flex flex-col md:flex-row items-center justify-around gap-4 z-30">
-                    <div className="flex flex-col items-center text-white/90 gap-1">
-                       <div className='flex items-center gap-2'>
-                           <Mountain className="h-5 w-5" />
-                           <span className="font-semibold text-lg">Height</span>
+                <div className="absolute top-2 w-11/12 md:w-3/4 lg:w-2/3 flex items-center justify-around gap-2 z-30">
+                    <div className="flex flex-col items-center text-white/90 gap-0">
+                       <div className='flex items-center gap-1'>
+                           <Mountain className="h-4 w-4" />
+                           <span className="font-semibold text-sm md:text-lg">Height</span>
                         </div>
-                        <span className="font-mono text-2xl font-bold">{height.toFixed(0)} ft</span>
+                        <span className="font-mono text-lg md:text-2xl font-bold">{height.toFixed(0)} ft</span>
                     </div>
-                    <div className='flex flex-col items-center text-white/90 gap-1'>
-                        <span className="font-semibold text-lg">Danger Level</span>
-                        <GaugeMeter value={dangerLevel} size={120} />
+                    <div className='flex flex-col items-center text-white/90 gap-0'>
+                        <span className="font-semibold text-sm md:text-lg">Danger Level</span>
+                        <GaugeMeter value={dangerLevel} size={80} />
                     </div>
                 </div>
             )}
@@ -129,7 +129,7 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
             
             {showPlane && (
                  <div ref={planeRef} className={cn("absolute bottom-1/2 left-0 z-10", animationClass)} style={{transform: `translateY(50%)`}}>
-                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={128} height={128} />
+                    <Image src="https://i.postimg.cc/9fPhgPNN/1757394289552.png" alt="Golden Plane" width={80} height={80} />
                 </div>
             )}
             
@@ -139,3 +139,5 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
 
 BitCrashAnimation.displayName = "BitCrashAnimation";
 
+
+    
