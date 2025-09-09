@@ -563,6 +563,16 @@ export default function TradingDashboard() {
     }
   }, [blastToast, toast]);
 
+  const handleBitCrashBlast = useCallback(() => {
+    if (bitCrashIntervalRef.current) {
+        clearInterval(bitCrashIntervalRef.current);
+        bitCrashIntervalRef.current = null;
+    }
+    setBitCrashState('blasted');
+    setIsTrading(false);
+    setIsTurboRound(false);
+    setBlastToast(true);
+  }, []);
 
   const handleLogout = async () => {
     if (username) {
@@ -618,14 +628,6 @@ export default function TradingDashboard() {
     // Deduct bet amount immediately
     setUsdBalance(prev => prev - betAmount);
   }
-
-  const handleBitCrashBlast = useCallback(() => {
-     if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
-      setBitCrashState('blasted');
-      setIsTrading(false);
-      setIsTurboRound(false);
-      setBlastToast(true);
-  }, []);
 
   const handleBitCrashFly = (values: TradeFormValues) => {
     if (isTrading || !username || !values.amount) return;
@@ -917,7 +919,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-headline flex items-center gap-2">
+              <CardTitle className="font-headline flex items-center gap-2 text-2xl">
                 {isExtremeMode ? (
                   <>
                     Place Bet
@@ -1045,7 +1047,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1.5">
-              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardTitle className="font-headline text-2xl">Portfolio</CardTitle>
               <CardDescription>
                 Your current assets and total value.
               </CardDescription>
@@ -1119,7 +1121,7 @@ export default function TradingDashboard() {
   
   const renderGoldFlyUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[40vh] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[30vh] md:min-h-[50vh] lg:min-h-0">
         <GoldFlyAnimation 
             ref={planeRef}
             gameState={goldFlyState} 
@@ -1132,9 +1134,9 @@ export default function TradingDashboard() {
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-             <CardTitle className="font-headline flex items-center gap-2">
+             <CardTitle className="font-headline flex items-center gap-2 text-xl">
                 GoldFly
-                <Plane className="h-6 w-6 text-yellow-400" />
+                <Plane className="h-5 w-5 text-yellow-400" />
             </CardTitle>
             <CardDescription>
                 Place Your Bet. Predict the plane's flight path.
@@ -1161,6 +1163,7 @@ export default function TradingDashboard() {
                           {...field}
                           type="number"
                           step="0.01"
+                          size="sm"
                           disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -1179,6 +1182,7 @@ export default function TradingDashboard() {
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
                   disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                   className="bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
                 >
                   {isTrading && goldFlyBet?.direction === 'up' ? (
                     <Loader2 className="animate-spin mr-2" />
@@ -1191,6 +1195,7 @@ export default function TradingDashboard() {
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
                   variant="destructive"
                   disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
+                   size="sm"
                 >
                   {isTrading && goldFlyBet?.direction === 'down' ? (
                     <Loader2 className="animate-spin mr-2" />
@@ -1207,7 +1212,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1.5">
-              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
               <CardDescription>
                 Your current assets and total value.
               </CardDescription>
@@ -1236,7 +1241,7 @@ export default function TradingDashboard() {
 
   const renderBitCrashUI = () => (
     <>
-      <div className="lg:col-span-2 min-h-[40vh] md:min-h-[50vh] lg:min-h-0">
+      <div className="lg:col-span-2 min-h-[30vh] md:min-h-[50vh] lg:min-h-0">
         <BitCrashAnimation
           gameState={bitCrashState}
           gainPercent={gainPercent}
@@ -1247,9 +1252,9 @@ export default function TradingDashboard() {
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-             <CardTitle className="font-headline flex items-center gap-2">
+             <CardTitle className="font-headline flex items-center gap-2 text-xl">
                 Bit Crash
-                <Rocket className="h-6 w-6 text-destructive" />
+                <Rocket className="h-5 w-5 text-destructive" />
             </CardTitle>
             <CardDescription>
                 Fly high, but withdraw before you blast!
@@ -1276,6 +1281,7 @@ export default function TradingDashboard() {
                           {...field}
                           type="number"
                           step="0.01"
+                          size="sm"
                           disabled={isTrading || isBitCrashLocked}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -1295,6 +1301,7 @@ export default function TradingDashboard() {
                         onClick={handleBitCrashWithdraw}
                         disabled={!isTrading}
                         className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
                         >
                         <HandCoins className="mr-2 h-4 w-4" />
                         Withdraw {`(${(form.getValues('amount' || 0) * (1 + gainPercent/100)).toFixed(2)})`}
@@ -1304,6 +1311,7 @@ export default function TradingDashboard() {
                         onClick={form.handleSubmit(handleBitCrashFly)}
                         disabled={isTrading || isBitCrashLocked}
                         className="w-full"
+                        size="sm"
                     >
                         {isTrading && bitCrashState !== 'running' ? (
                             <Loader2 className="animate-spin mr-2" />
@@ -1321,7 +1329,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1.5">
-              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
               <CardDescription>
                 Your current assets and total value.
               </CardDescription>
@@ -1403,7 +1411,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
-
-    
