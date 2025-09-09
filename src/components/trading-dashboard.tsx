@@ -629,6 +629,7 @@ export default function TradingDashboard() {
     if (bitCrashState === 'blasted' || bitCrashState === 'withdrawn') {
         setBitCrashState('idle');
         setGainPercent(0);
+        return; // Let user click again to start
     }
     
     const betAmount = values.amount;
@@ -638,29 +639,33 @@ export default function TradingDashboard() {
     }
 
     setIsTrading(true);
-    setUsdBalance(prev => prev - betAmount);
-    setBitCrashState('running');
-    setGainPercent(0);
+    
+    // 3 second delay before starting
+    setTimeout(() => {
+        setUsdBalance(prev => prev - betAmount);
+        setBitCrashState('running');
+        setGainPercent(0);
 
-    bitCrashIntervalRef.current = setInterval(() => {
-        setGainPercent(prevGain => {
-            const newGain = prevGain + Math.random() * 0.5;
-            
-            let blastChance = 0;
-            if (newGain < 15) blastChance = 0.035;
-            else if (newGain < 30) blastChance = 0.22;
-            else if (newGain < 70) blastChance = 0.43;
-            else if (newGain < 90) blastChance = 0.55;
-            else blastChance = 0.99;
+        bitCrashIntervalRef.current = setInterval(() => {
+            setGainPercent(prevGain => {
+                const newGain = prevGain + Math.random() * 0.5;
+                
+                let blastChance = 0;
+                if (newGain < 15) blastChance = 0.035;
+                else if (newGain < 30) blastChance = 0.22;
+                else if (newGain < 70) blastChance = 0.43;
+                else if (newGain < 90) blastChance = 0.55;
+                else blastChance = 0.99;
 
-            if (Math.random() < blastChance / 20) { // Check every 50ms approx
-                handleBitCrashBlast();
-                return prevGain;
-            }
+                if (Math.random() < blastChance / 20) { // Check every 50ms approx
+                    handleBitCrashBlast();
+                    return prevGain;
+                }
 
-            return newGain;
-        });
-    }, 50);
+                return newGain;
+            });
+        }, 50);
+    }, 3000);
   };
 
   const handleBitCrashWithdraw = () => {

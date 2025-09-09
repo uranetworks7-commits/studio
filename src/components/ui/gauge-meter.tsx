@@ -31,6 +31,11 @@ export const GaugeMeter: React.FC<GaugeMeterProps> = ({ value, size = 100, class
     };
   };
 
+  // Convert percentage thresholds to angles
+  const greenEndAngle = (10 / 100) * 180; // 0-10%
+  const yellowEndAngle = (50 / 100) * 180; // 10-50%
+  const redEndAngle = (100 / 100) * 180; // 50-100%
+
   return (
     <div className={cn("relative", className)} style={{ width: size, height: size / 2 }}>
       <svg width={size} height={size / 2} viewBox={`0 0 ${size} ${size / 2}`} className="overflow-visible">
@@ -44,7 +49,7 @@ export const GaugeMeter: React.FC<GaugeMeterProps> = ({ value, size = 100, class
         />
         {/* Green segment */}
         <path
-          d={getPath(0, 60)}
+          d={getPath(0, greenEndAngle)}
           fill="none"
           stroke="hsl(var(--chart-1))"
           strokeWidth={strokeWidth}
@@ -52,7 +57,7 @@ export const GaugeMeter: React.FC<GaugeMeterProps> = ({ value, size = 100, class
         />
         {/* Yellow segment */}
         <path
-          d={getPath(60, 120)}
+          d={getPath(greenEndAngle, yellowEndAngle)}
           fill="none"
           stroke="hsl(var(--chart-4))"
           strokeWidth={strokeWidth}
@@ -60,7 +65,7 @@ export const GaugeMeter: React.FC<GaugeMeterProps> = ({ value, size = 100, class
         />
         {/* Red segment */}
         <path
-          d={getPath(120, 180)}
+          d={getPath(yellowEndAngle, redEndAngle)}
           fill="none"
           stroke="hsl(var(--chart-2))"
           strokeWidth={strokeWidth}
