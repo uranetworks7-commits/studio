@@ -906,8 +906,8 @@ export default function TradingDashboard() {
   }
 
   const renderNormalTradeUI = () => (
-    <>
-      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 h-full">
+      <div className="lg:col-span-2 h-[50vh] lg:h-auto">
         <PriceChart
           data={priceHistory}
           currentPrice={currentPrice}
@@ -915,7 +915,7 @@ export default function TradingDashboard() {
         />
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4 md:gap-6">
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div>
@@ -1107,238 +1107,204 @@ export default function TradingDashboard() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
   
-  const renderGoldFlyUI = () => (
-    <>
-      <div className="lg:col-span-2 min-h-[240px] md:min-h-0">
-        <GoldFlyAnimation 
-            ref={planeRef}
-            gameState={goldFlyState} 
-            bet={goldFlyBet} 
-            altitude={goldFlyAltitude}
-            onAnimationComplete={handleGoldFlyAnimationComplete}
-        />
-      </div>
-
-      <div className="flex flex-col gap-6">
-        <Card>
-          <CardHeader className="p-2">
-             <CardTitle className="font-headline flex items-center gap-1.5 text-lg">
-                GoldFly
-                <Plane className="h-4 w-4 text-yellow-400" />
-            </CardTitle>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-2 p-2 pt-0">
-                 {isGoldFlyLocked && (
-                    <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
-                        <p className="font-bold">GoldFly Disabled</p>
-                        <p className="text-xs">Balance > ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
-                    </div>
-                 )}
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Bet (USD)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="100.00"
-                          {...field}
-                          type="number"
-                          step="0.01"
-                          size="sm"
-                          disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value === "" ? undefined : Number(value));
-                          }}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-2 p-2 pt-0">
-                <Button
-                  onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
-                  disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  {isTrading && goldFlyBet?.direction === 'up' ? (
-                    <Loader2 className="animate-spin mr-2" />
-                  ) : (
-                    <ArrowUp />
-                  )}
-                  {goldFlyState === 'finished' ? 'Again' : 'Up'}
-                </Button>
-                <Button
-                  onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
-                  variant="destructive"
-                  disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
-                   size="sm"
-                >
-                  {isTrading && goldFlyBet?.direction === 'down' ? (
-                    <Loader2 className="animate-spin mr-2" />
-                  ) : (
-                    <ArrowDown />
-                  )}
-                  {goldFlyState === 'finished' ? 'Again' : 'Down'}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 p-2">
-            <div className="space-y-0.5">
-              <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
+  const renderGameUI = (
+    gameType: 'goldfly' | 'bitcrash',
+    animationComponent: React.ReactNode,
+    controlsComponent: React.ReactNode,
+    portfolioComponent: React.ReactNode
+  ) => (
+    <div className="flex flex-col h-full gap-4">
+        <div className="flex-grow rounded-lg overflow-hidden">
+            {animationComponent}
+        </div>
+        <div className="flex flex-col md:flex-row gap-4">
+            <div className="w-full md:w-1/2">
+                {controlsComponent}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0 p-2 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Landmark className="h-4 w-4 text-primary" />
-                <span>USD</span>
-              </div>
-              <span className="font-mono">
-                $
-                {usdBalance.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
+            <div className="w-full md:w-1/2">
+                {portfolioComponent}
             </div>
-          </CardContent>
-        </Card>
-
-      </div>
-    </>
+        </div>
+    </div>
   );
 
-  const renderBitCrashUI = () => (
-    <>
-      <div className="lg:col-span-2 min-h-[240px] md:min-h-0">
-        <BitCrashAnimation
-          gameState={bitCrashState}
-          gainPercent={gainPercent}
-          isTurboRound={isTurboRound}
-        />
-      </div>
 
-      <div className="flex flex-col gap-6">
-        <Card>
-          <CardHeader className="p-2">
-             <CardTitle className="font-headline flex items-center gap-1.5 text-lg">
-                Bit Crash
-                <Rocket className="h-4 w-4 text-destructive" />
-            </CardTitle>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-2 p-2 pt-0">
-                 {isBitCrashLocked && (
-                    <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
-                        <p className="font-bold">Bit Crash Disabled</p>
-                        <p className="text-xs">Balance > ${BITCRASH_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
-                    </div>
-                 )}
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Bet (USD)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="100.00"
-                          {...field}
-                          type="number"
-                          step="0.01"
-                          size="sm"
-                          disabled={isTrading || isBitCrashLocked}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value === "" ? undefined : Number(value));
-                          }}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter className="p-2 pt-0">
-                 {bitCrashState === 'running' ? (
-                     <Button
-                        onClick={handleBitCrashWithdraw}
-                        disabled={!isTrading}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white"
-                        size="sm"
-                        >
-                        <HandCoins className="mr-2 h-4 w-4" />
-                        Withdraw {`(${(form.getValues('amount' || 0) * (1 + gainPercent/100)).toFixed(2)})`}
-                    </Button>
-                 ) : (
-                    <Button
-                        onClick={form.handleSubmit(handleBitCrashFly)}
-                        disabled={isTrading || isBitCrashLocked}
-                        className="w-full"
-                        size="sm"
-                    >
-                        {isTrading && bitCrashState !== 'running' ? (
-                            <Loader2 className="animate-spin mr-2" />
-                        ) : (
-                            <Rocket className="mr-2 h-4 w-4"/>
-                        )}
-                        {bitCrashState === 'blasted' || bitCrashState === 'withdrawn' ? "Fly Again" : "Fly"}
-                    </Button>
-                 )}
-              </CardFooter>
-            </form>
-          </Form>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2 p-2">
-            <div className="space-y-0.5">
-              <CardTitle className="font-headline text-lg">Portfolio</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0 p-2 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Landmark className="h-4 w-4 text-primary" />
-                <span>USD</span>
-              </div>
-              <span className="font-mono">
-                $
-                {usdBalance.toLocaleString("en-US", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            </div>
+  const goldFlyControls = (
+    <Card>
+      <CardHeader className="p-4">
+         <CardTitle className="font-headline flex items-center gap-2 text-xl">
+            GoldFly
+            <Plane className="h-5 w-5 text-yellow-400" />
+        </CardTitle>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={(e) => e.preventDefault()}>
+          <CardContent className="space-y-4 p-4 pt-0">
+             {isGoldFlyLocked && (
+                <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
+                    <p className="font-bold">GoldFly Disabled</p>
+                    <p className="text-xs">Balance > ${GOLDFLY_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                </div>
+             )}
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bet (USD)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="100.00"
+                      {...field}
+                      type="number"
+                      step="0.01"
+                      disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? undefined : Number(value));
+                      }}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
-        </Card>
-      </div>
-    </>
+          <CardFooter className="grid grid-cols-2 gap-4 p-4 pt-0">
+            <Button
+              onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
+              disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isTrading && goldFlyBet?.direction === 'up' ? (
+                <Loader2 className="animate-spin mr-2" />
+              ) : (
+                <ArrowUp />
+              )}
+              {goldFlyState === 'finished' ? 'Again' : 'Up'}
+            </Button>
+            <Button
+              onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
+              variant="destructive"
+              disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
+            >
+              {isTrading && goldFlyBet?.direction === 'down' ? (
+                <Loader2 className="animate-spin mr-2" />
+              ) : (
+                <ArrowDown />
+              )}
+              {goldFlyState === 'finished' ? 'Again' : 'Down'}
+            </Button>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
+  );
+
+  const bitCrashControls = (
+    <Card>
+      <CardHeader className="p-4">
+         <CardTitle className="font-headline flex items-center gap-2 text-xl">
+            Bit Crash
+            <Rocket className="h-5 w-5 text-destructive" />
+        </CardTitle>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={(e) => e.preventDefault()}>
+          <CardContent className="space-y-4 p-4 pt-0">
+             {isBitCrashLocked && (
+                <div className="p-2 rounded-md bg-destructive/20 text-center text-destructive-foreground text-sm">
+                    <p className="font-bold">Bit Crash Disabled</p>
+                    <p className="text-xs">Balance > ${BITCRASH_LOCKOUT_THRESHOLD.toLocaleString()}.</p>
+                </div>
+             )}
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bet (USD)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="100.00"
+                      {...field}
+                      type="number"
+                      step="0.01"
+                      disabled={isTrading || isBitCrashLocked}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        field.onChange(value === "" ? undefined : Number(value));
+                      }}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+          <CardFooter className="p-4 pt-0">
+             {bitCrashState === 'running' ? (
+                 <Button
+                    onClick={handleBitCrashWithdraw}
+                    disabled={!isTrading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                    <HandCoins className="mr-2 h-4 w-4" />
+                    Withdraw {`(${(form.getValues('amount' || 0) * (1 + gainPercent/100)).toFixed(2)})`}
+                </Button>
+             ) : (
+                <Button
+                    onClick={form.handleSubmit(handleBitCrashFly)}
+                    disabled={isTrading || isBitCrashLocked}
+                    className="w-full"
+                >
+                    {isTrading && bitCrashState !== 'running' ? (
+                        <Loader2 className="animate-spin mr-2" />
+                    ) : (
+                        <Rocket className="mr-2 h-4 w-4"/>
+                    )}
+                    {bitCrashState === 'blasted' || bitCrashState === 'withdrawn' ? "Fly Again" : "Fly"}
+                </Button>
+             )}
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
+  );
+
+  const gamePortfolio = (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 p-4">
+        <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 p-4 pt-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Landmark className="h-5 w-5 text-primary" />
+            <span>USD Balance</span>
+          </div>
+          <span className="font-mono">
+            $
+            {usdBalance.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen max-h-screen bg-background">
       <header className="p-4 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-headline font-bold text-primary">
+          <h1 className="text-xl md:text-2xl font-headline font-bold text-primary">
             URA Trade
           </h1>
           {tradeMode === 'normal' && <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
@@ -1349,8 +1315,8 @@ export default function TradingDashboard() {
           </div>}
         </div>
         {username && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span>{username}</span>
             </div>
@@ -1363,27 +1329,41 @@ export default function TradingDashboard() {
           </div>
         )}
       </header>
-      <main className="flex-grow p-2 md:p-6 overflow-auto">
-        <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4">
+      <main className="flex-grow p-4 md:p-6 overflow-y-auto">
+        <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4 shrink-0">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
                 <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
                 <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
             </TabsList>
-            <TabsContent value="normal">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                    {renderNormalTradeUI()}
-                </div>
+            <TabsContent value="normal" className="flex-grow">
+                {renderNormalTradeUI()}
             </TabsContent>
-            <TabsContent value="goldfly">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                    {renderGoldFlyUI()}
-                </div>
+            <TabsContent value="goldfly" className="flex-grow">
+                 {renderGameUI(
+                    'goldfly',
+                    <GoldFlyAnimation 
+                        ref={planeRef}
+                        gameState={goldFlyState} 
+                        bet={goldFlyBet} 
+                        altitude={goldFlyAltitude}
+                        onAnimationComplete={handleGoldFlyAnimationComplete}
+                    />,
+                    goldFlyControls,
+                    gamePortfolio
+                 )}
             </TabsContent>
-             <TabsContent value="bitcrash">
-                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                    {renderBitCrashUI()}
-                </div>
+             <TabsContent value="bitcrash" className="flex-grow">
+                 {renderGameUI(
+                    'bitcrash',
+                    <BitCrashAnimation
+                        gameState={bitCrashState}
+                        gainPercent={gainPercent}
+                        isTurboRound={isTurboRound}
+                    />,
+                    bitCrashControls,
+                    gamePortfolio
+                 )}
             </TabsContent>
         </Tabs>
       </main>
