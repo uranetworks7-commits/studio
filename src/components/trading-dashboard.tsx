@@ -545,9 +545,15 @@ export default function TradingDashboard() {
     setUsdBalance(prev => prev - betAmount);
     
     setTimeout(() => {
-        if (!planeRef.current) return;
+        if (!planeRef.current) {
+             setIsTrading(false);
+             return;
+        }
         const container = planeRef.current.parentElement;
-        if (!container) return;
+        if (!container) {
+             setIsTrading(false);
+             return;
+        }
 
         const { top, height } = planeRef.current.getBoundingClientRect();
         const containerTop = container.getBoundingClientRect().top;
@@ -582,12 +588,12 @@ export default function TradingDashboard() {
         setUsdBalance(newUsdBalance);
         
         setGoldFlyState('finished');
-        setIsTrading(false);
-        form.reset({ amount: values.amount });
         
         setTimeout(() => {
             setGoldFlyState('idle');
             setGoldFlyBet(null);
+            setIsTrading(false);
+            form.reset({ amount: values.amount });
         }, 2000);
 
     }, 8000); // Increased timeout to match animation
