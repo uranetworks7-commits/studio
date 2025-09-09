@@ -217,6 +217,7 @@ export default function TradingDashboard() {
   // BitCrash State
   const [bitCrashState, setBitCrashState] = useState<'idle' | 'running' | 'blasted' | 'withdrawn'>('idle');
   const [gainPercent, setGainPercent] = useState(0);
+  const [blastToast, setBlastToast] = useState(false);
   const bitCrashIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
 
@@ -506,6 +507,18 @@ export default function TradingDashboard() {
     return () => clearTimeout(timeoutId);
   }, [currentPrice, chartType, username, tradeMode]);
 
+  useEffect(() => {
+    if (blastToast) {
+        toast({
+            title: "Blasted! 💥",
+            description: "You lost your bet.",
+            variant: "destructive"
+        });
+        setBlastToast(false);
+    }
+  }, [blastToast, toast]);
+
+
   const handleLogout = async () => {
     if (username) {
       try {
@@ -544,6 +557,7 @@ export default function TradingDashboard() {
     if (goldFlyState === 'finished') {
         setGoldFlyState('idle');
         setGoldFlyBet(null);
+        return; // Let user click again to start
     }
 
     const betAmount = values.amount;
@@ -610,9 +624,21 @@ export default function TradingDashboard() {
     }, 5000); 
   }
 
+  const handleBitCrashBlast = useCallback(() => {
+     if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
+      setBitCrashState('blasted');
+      setIsTrading(false);
+      setBlastToast(true);
+  }, []);
+
   const handleBitCrashFly = (values: TradeFormValues) => {
     if (isTrading || !username || !values.amount) return;
 
+    if (bitCrashState === 'blasted' || bitCrashState === 'withdrawn') {
+        setBitCrashState('idle');
+        setGainPercent(0);
+    }
+    
     const betAmount = values.amount;
     if (betAmount > usdBalance) {
         toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
@@ -644,17 +670,6 @@ export default function TradingDashboard() {
         });
     }, 50);
   };
-
-  const handleBitCrashBlast = () => {
-     if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
-      setBitCrashState('blasted');
-      setIsTrading(false);
-      toast({
-          title: "Blasted! 💥",
-          description: "You lost your bet.",
-          variant: "destructive"
-      });
-  }
 
   const handleBitCrashWithdraw = () => {
     if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
@@ -1125,7 +1140,7 @@ export default function TradingDashboard() {
                           {...field}
                           type="number"
                           step="0.01"
-                          disabled={isTrading || isGoldFlyLocked}
+                          disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                           onChange={(e) => {
                             const value = e.target.value;
                             field.onChange(value === "" ? undefined : Number(value));
@@ -1141,7 +1156,7 @@ export default function TradingDashboard() {
               <CardFooter className="grid grid-cols-2 gap-4">
                 <Button
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "up"))}
-                  disabled={isTrading || isGoldFlyLocked}
+                  disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   {isTrading && goldFlyBet?.direction === 'up' ? (
@@ -1149,19 +1164,19 @@ export default function TradingDashboard() {
                   ) : (
                     <ArrowUp />
                   )}
-                  Up
+                  {goldFlyState === 'finished' ? 'Play Again' : 'Up'}
                 </Button>
                 <Button
                   onClick={form.handleSubmit((v) => handleGoldFlyTrade(v, "down"))}
                   variant="destructive"
-                  disabled={isTrading || isGoldFlyLocked}
+                  disabled={isTrading || isGoldFlyLocked || goldFlyState === 'running'}
                 >
                   {isTrading && goldFlyBet?.direction === 'down' ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     <ArrowDown />
                   )}
-                  Down
+                  {goldFlyState === 'finished' ? 'Play Again' : 'Down'}
                 </Button>
               </CardFooter>
             </form>
@@ -1360,3 +1375,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
