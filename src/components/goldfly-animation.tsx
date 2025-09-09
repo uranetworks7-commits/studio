@@ -81,6 +81,7 @@ export const GoldFlyAnimation = forwardRef<HTMLDivElement, GoldFlyAnimationProps
                     <XAxis dataKey="time" type="number" domain={[0, 100]} hide={true} />
                     <Area type="monotone" dataKey="alt" stroke="hsl(var(--chart-1))" fill="url(#colorAltitude)" strokeWidth={2} dot={false} isAnimationActive={false} />
                     <ReferenceLine y={50} stroke="white" strokeDasharray="3 3" />
+                    <ReferenceLine x={pathData[pathData.length -1].time} stroke="white" strokeDasharray="3 3"  />
                 </AreaChart>
             </ResponsiveContainer>
 
