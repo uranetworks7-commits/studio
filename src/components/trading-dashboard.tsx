@@ -427,9 +427,9 @@ export default function TradingDashboard() {
             const planeCenterY = planeRect.top - containerRect.top + planeRect.height / 2;
             const containerHeight = container.clientHeight;
 
-            // Invert so higher on screen is higher altitude
+            // Invert so higher on screen is higher altitude and ensure it's not negative
             const newAltitude = 100 - (planeCenterY / containerHeight * 100);
-            setGoldFlyAltitude(newAltitude);
+            setGoldFlyAltitude(Math.max(0, newAltitude));
         }
     }, 50);
 
@@ -437,7 +437,7 @@ export default function TradingDashboard() {
   }, [goldFlyState]);
 
    const handleGoldFlyAnimationComplete = useCallback((altitude: number) => {
-    setFinalAltitude(altitude);
+    setFinalAltitude(Math.max(0, altitude));
   }, []);
   
   useEffect(() => {
