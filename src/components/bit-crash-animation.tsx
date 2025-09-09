@@ -5,6 +5,8 @@ import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer } from 'recharts';
+import { Progress } from './ui/progress';
+import { Mountain, Gauge } from 'lucide-react';
 
 interface BitCrashAnimationProps {
     gameState: 'idle' | 'running' | 'blasted' | 'withdrawn';
@@ -15,6 +17,8 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
     const containerRef = useRef<HTMLDivElement>(null);
     const planeRef = useRef<HTMLDivElement>(null);
     const [pathData, setPathData] = useState([{ time: 0, alt: 0 }]);
+    const [height, setHeight] = useState(0);
+
     const animationClass = useMemo(() => {
         if (gameState === 'running') return 'animate-crash-fly';
         if (gameState === 'blasted') return 'animate-crash-blast';
@@ -25,20 +29,26 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
         let interval: NodeJS.Timeout | null = null;
         if (gameState === 'running') {
             setPathData([{ time: 0, alt: 0 }]);
+            setHeight(0);
             interval = setInterval(() => {
                 if (planeRef.current && containerRef.current) {
                     const planeRect = planeRef.current.getBoundingClientRect();
                     const containerRect = containerRef.current.getBoundingClientRect();
+                    
                     const currentY = planeRect.top - containerRect.top + (planeRect.height / 2);
                     const newAltitude = 100 - (currentY / containerRect.height) * 100;
+                    
                     const currentX = planeRect.left - containerRect.left + (planeRect.width / 2);
                     const newTime = (currentX / containerRect.width) * 100;
-                    setPathData(prev => [...prev, { time: newTime, alt: newAltitude }].slice(-100));
+
+                    setPathData(prev => [...prev, { time: newTime, alt: Math.max(0,newAltitude) }].slice(-100));
+                    setHeight(prev => prev + Math.random() * 50);
                 }
             }, 100);
         } else {
              if (gameState === 'idle') {
                 setPathData([{ time: 0, alt: 0 }]);
+                setHeight(0);
             }
             if (interval) {
                 clearInterval(interval);
@@ -50,6 +60,9 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
     }, [gameState]);
     
     const showPlane = gameState === 'running' || gameState === 'blasted';
+
+    const dangerLevel = Math.min(100, gainPercent);
+    const dangerColor = dangerLevel < 50 ? 'bg-green-500' : dangerLevel < 80 ? 'bg-yellow-500' : 'bg-red-500';
 
     return (
         <div ref={containerRef} className="w-full h-full bg-blue-900/20 rounded-lg flex items-center justify-center relative overflow-hidden">
@@ -78,6 +91,24 @@ export const BitCrashAnimation = forwardRef<HTMLDivElement, BitCrashAnimationPro
                     </div>
                 )}
             </div>
+             {gameState === 'running' && (
+                <div className="absolute top-4 w-11/12 md:w-3/4 lg:w-1/2 flex flex-col gap-2 z-30">
+                    <div className="flex items-center justify-between text-white/90">
+                        <div className='flex items-center gap-2'>
+                           <Mountain className="h-5 w-5" />
+                           <span className="font-semibold">Height</span>
+                        </div>
+                        <span className="font-mono">{height.toFixed(0)} ft</span>
+                    </div>
+                    <div className="flex items-center justify-between text-white/90">
+                         <div className='flex items-center gap-2'>
+                           <Gauge className="h-5 w-5" />
+                           <span className="font-semibold">Danger</span>
+                        </div>
+                    </div>
+                     <Progress value={dangerLevel} className="h-2 [&>div]:bg-red-500" indicatorClassName={dangerColor} />
+                </div>
+            )}
 
             <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={pathData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
