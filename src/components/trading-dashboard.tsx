@@ -17,6 +17,8 @@ import {
   ThumbsUp,
   User,
   Zap,
+  Rocket,
+  HandCoins,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -57,6 +59,7 @@ import { PriceChart } from "./price-chart";
 import { UserModal } from "./user-modal";
 import { Separator } from "./ui/separator";
 import { GoldFlyAnimation } from "./goldfly-animation";
+import { BitCrashAnimation } from "./bit-crash-animation";
 
 const formSchema = z.object({
   amount: z.coerce
@@ -82,7 +85,7 @@ interface PriceData {
 
 type PriceRegimeKey = "LOW" | "MID" | "HIGH";
 type TrendKey = "UP" | "DOWN" | "SIDEWAYS";
-type TradeMode = "normal" | "goldfly";
+type TradeMode = "normal" | "goldfly" | 'bitcrash';
 
 type PriceRegime = {
   name: string;
@@ -210,6 +213,11 @@ export default function TradingDashboard() {
   const [goldFlyBet, setGoldFlyBet] = useState<{direction: 'up' | 'down', amount: number} | null>(null);
   const [goldFlyAltitude, setGoldFlyAltitude] = useState(0);
   const planeRef = useRef<HTMLDivElement>(null);
+
+  // BitCrash State
+  const [bitCrashState, setBitCrashState] = useState<'idle' | 'running' | 'blasted' | 'withdrawn'>('idle');
+  const [gainPercent, setGainPercent] = useState(0);
+  const bitCrashIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const { toast } = useToast();
@@ -600,6 +608,72 @@ export default function TradingDashboard() {
         form.reset({ amount: values.amount });
 
     }, 5000); 
+  }
+
+  const handleBitCrashFly = (values: TradeFormValues) => {
+    if (isTrading || !username || !values.amount) return;
+
+    const betAmount = values.amount;
+    if (betAmount > usdBalance) {
+        toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
+        return;
+    }
+
+    setIsTrading(true);
+    setUsdBalance(prev => prev - betAmount);
+    setBitCrashState('running');
+    setGainPercent(0);
+
+    bitCrashIntervalRef.current = setInterval(() => {
+        setGainPercent(prevGain => {
+            const newGain = prevGain + Math.random() * 1.5;
+            
+            let blastChance = 0;
+            if (newGain < 25) blastChance = 0.30;
+            else if (newGain < 50) blastChance = 0.60;
+            else if (newGain < 70) blastChance = 0.80;
+            else if (newGain < 90) blastChance = 0.89;
+            else blastChance = 0.99;
+
+            if (Math.random() < blastChance / 20) { // Check every 50ms approx
+                handleBitCrashBlast();
+                return prevGain;
+            }
+
+            return newGain;
+        });
+    }, 50);
+  };
+
+  const handleBitCrashBlast = () => {
+     if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
+      setBitCrashState('blasted');
+      setIsTrading(false);
+      toast({
+          title: "Blasted! 💥",
+          description: "You lost your bet.",
+          variant: "destructive"
+      });
+  }
+
+  const handleBitCrashWithdraw = () => {
+    if (bitCrashIntervalRef.current) clearInterval(bitCrashIntervalRef.current);
+    if (!username) return;
+
+    setBitCrashState('withdrawn');
+    const betAmount = form.getValues('amount') || 0;
+    const profit = betAmount * (gainPercent / 100);
+    const newBalance = usdBalance + betAmount + profit;
+
+    const userRef = ref(db, `users/${username}`);
+    update(userRef, { usdBalance: newBalance });
+    setUsdBalance(newBalance);
+    
+    toast({
+        title: "Withdrawn! 💰",
+        description: `You secured a profit of $${profit.toFixed(2)} at ${gainPercent.toFixed(2)}% gain.`
+    });
+    setIsTrading(false);
   }
 
   const handleTrade = async (
@@ -1122,7 +1196,113 @@ export default function TradingDashboard() {
 
       </div>
     </>
-  )
+  );
+
+  const renderBitCrashUI = () => (
+    <>
+      <div className="lg:col-span-2 min-h-[50vh] lg:min-h-0">
+        <BitCrashAnimation
+          gameState={bitCrashState}
+          gainPercent={gainPercent}
+        />
+      </div>
+
+      <div className="flex flex-col gap-6">
+        <Card>
+          <CardHeader>
+             <CardTitle className="font-headline flex items-center gap-2">
+                Bit Crash
+                <Rocket className="h-6 w-6 text-destructive" />
+            </CardTitle>
+            <CardDescription>
+                Fly high, but withdraw before you blast!
+            </CardDescription>
+          </CardHeader>
+          <Form {...form}>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bet Amount (USD)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="100.00"
+                          {...field}
+                          type="number"
+                          step="0.01"
+                          disabled={isTrading}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? undefined : Number(value));
+                          }}
+                          value={field.value ?? ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardFooter>
+                 {bitCrashState === 'running' ? (
+                     <Button
+                        onClick={handleBitCrashWithdraw}
+                        disabled={!isTrading}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        >
+                        <HandCoins className="mr-2 h-4 w-4" />
+                        Withdraw {`(${(form.getValues('amount' || 0) * (1 + gainPercent/100)).toFixed(2)})`}
+                    </Button>
+                 ) : (
+                    <Button
+                        onClick={form.handleSubmit(handleBitCrashFly)}
+                        disabled={isTrading}
+                        className="w-full"
+                    >
+                        {isTrading ? (
+                            <Loader2 className="animate-spin mr-2" />
+                        ) : (
+                            <Rocket />
+                        )}
+                        {bitCrashState === 'blasted' || bitCrashState === 'withdrawn' ? "Fly Again" : "Fly"}
+                    </Button>
+                 )}
+              </CardFooter>
+            </form>
+          </Form>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-1.5">
+              <CardTitle className="font-headline">Portfolio</CardTitle>
+              <CardDescription>
+                Your current assets and total value.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Landmark className="h-5 w-5 text-primary" />
+                <span>USD Balance</span>
+              </div>
+              <span>
+                $
+                {usdBalance.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -1155,9 +1335,10 @@ export default function TradingDashboard() {
       </header>
       <main className="flex-grow p-4 md:p-8 overflow-auto">
         <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-sm mx-auto mb-4">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-4">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
                 <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
+                <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
             </TabsList>
             <TabsContent value="normal">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
@@ -1167,6 +1348,11 @@ export default function TradingDashboard() {
             <TabsContent value="goldfly">
                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
                     {renderGoldFlyUI()}
+                </div>
+            </TabsContent>
+             <TabsContent value="bitcrash">
+                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                    {renderBitCrashUI()}
                 </div>
             </TabsContent>
         </Tabs>

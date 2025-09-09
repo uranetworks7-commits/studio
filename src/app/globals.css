@@ -106,11 +106,45 @@
     }
   }
 
+  @keyframes crash-fly {
+    0% {
+      transform: translate(0, 0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(800px, -400px) rotate(25deg);
+      opacity: 1;
+    }
+  }
+
+  @keyframes crash-blast {
+    0% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.2) rotate(15deg);
+      opacity: 0.5;
+    }
+    100% {
+      transform: scale(0.5) rotate(-15deg);
+      opacity: 0;
+    }
+  }
+
   .animate-projectile-up {
     animation: projectile-up 5s ease-in-out forwards;
   }
 
   .animate-projectile-down {
     animation: projectile-down 5s ease-in-out forwards;
+  }
+
+  .animate-crash-fly {
+    animation: crash-fly 15s linear forwards;
+  }
+
+  .animate-crash-blast {
+    animation: crash-blast 0.5s ease-out forwards;
   }
 }
