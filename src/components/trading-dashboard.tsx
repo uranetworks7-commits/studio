@@ -610,21 +610,23 @@ export default function TradingDashboard() {
   
   const handleGoldFlyTrade = async(values: TradeFormValues, direction: 'up' | 'down') => {
     if (isTrading || !username || !values.amount) return;
+    setIsTrading(true);
 
     // If game is finished, reset to idle before starting a new one.
     if (goldFlyState === 'finished') {
         setGoldFlyState('idle');
         setGoldFlyBet(null);
+        setIsTrading(false);
         return; // Let user click again to start
     }
 
     const betAmount = values.amount;
     if (betAmount > usdBalance) {
         toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
+        setIsTrading(false);
         return;
     }
     
-    setIsTrading(true);
     setGoldFlyBet({ direction, amount: betAmount });
     setGoldFlyState('running');
     
@@ -634,20 +636,21 @@ export default function TradingDashboard() {
 
   const handleBitCrashFly = (values: TradeFormValues) => {
     if (isTrading || !username || !values.amount) return;
+    setIsTrading(true);
 
     if (bitCrashState === 'blasted' || bitCrashState === 'withdrawn') {
         setBitCrashState('idle');
         setGainPercent(0);
+        setIsTrading(false);
         return; // Let user click again to start
     }
     
     const betAmount = values.amount;
     if (betAmount > usdBalance) {
         toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
+        setIsTrading(false);
         return;
     }
-
-    setIsTrading(true);
     
     // 3 second delay before starting
     setTimeout(() => {
@@ -1258,7 +1261,7 @@ export default function TradingDashboard() {
                       type="number"
                       step="0.01"
                       size="sm"
-                      disabled={isTrading || isBitCrashLocked}
+                      disabled={isTrading || isBitCrashLocked || bitCrashState === 'running'}
                       onChange={(e) => {
                         const value = e.target.value;
                         field.onChange(value === "" ? undefined : Number(value));
@@ -1304,7 +1307,7 @@ export default function TradingDashboard() {
   );
 
   return (
-    <div className="flex flex-col h-screen max-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
       <header className="p-2 border-b flex justify-between items-center shrink-0">
         <div className="flex items-center gap-2">
           <h1 className="text-lg md:text-2xl font-headline font-bold text-primary">
@@ -1419,5 +1422,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
