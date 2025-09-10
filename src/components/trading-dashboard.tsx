@@ -784,34 +784,43 @@ export default function TradingDashboard() {
         form.reset({ amount: values.amount });
       }
     } else {
-      // NORMAL MODE LOGIC
-      if (type === "buy" && amountInUsd > usdBalance) {
-        toast({
-          variant: "destructive",
-          description: "Insufficient USD to place this trade.",
-        });
-        setIsTrading(false);
-        return;
-      }
-      if (type === "sell") {
-        const btcAmountEquivalent = amountInUsd / currentPrice;
-        if (btcAmountEquivalent > btcBalance) {
-          toast({
-            variant: "destructive",
-            description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(
-              8
-            )} BTC.`,
-          });
-          setIsTrading(false);
-          return;
+      if (type === "buy") {
+          if (amountInUsd > usdBalance) {
+            toast({
+              variant: "destructive",
+              description: "Insufficient USD to place this trade.",
+            });
+            setIsTrading(false);
+            return;
+          }
+        } else { // sell
+          const btcAmountEquivalent = amountInUsd / currentPrice;
+          if (btcAmountEquivalent > btcBalance) {
+            toast({
+              variant: "destructive",
+              description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
+            });
+            setIsTrading(false);
+            return;
+          }
         }
-      }
+
+      // Artificial delay to simulate network latency
       await new Promise((resolve) => setTimeout(resolve, 750));
 
+      const userRef = ref(db, `users/${username}`);
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) {
+          toast({ variant: "destructive", description: "User data not found." });
+          setIsTrading(false);
+          return;
+      }
+      const freshUserData: UserData = snapshot.val();
+      
       const currentUserData = {
-        usdBalance,
-        btcBalance,
-        avgBtcCost,
+        usdBalance: freshUserData.usdBalance,
+        btcBalance: freshUserData.btcBalance,
+        avgBtcCost: freshUserData.avgBtcCost,
       };
 
       const result = calculateTrade(
@@ -828,7 +837,7 @@ export default function TradingDashboard() {
             btcBalance: result.btcBalance,
             avgBtcCost: result.avgBtcCost,
           };
-          const userRef = ref(db, `users/${username}`);
+          
           await update(userRef, updatedValues);
 
           setUsdBalance(result.usdBalance);
@@ -837,9 +846,7 @@ export default function TradingDashboard() {
 
           toast({
             title: `Trade Successful`,
-            description: `Bought ${result.btcAmountTraded.toFixed(
-              8
-            )} BTC for $${amountInUsd.toFixed(2)}.`,
+            description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
           });
         } else { // Sell logic
           
@@ -847,39 +854,42 @@ export default function TradingDashboard() {
               usdBalance: result.usdBalance,
               btcBalance: result.btcBalance,
               avgBtcCost: result.avgBtcCost,
+              todaysPL: freshUserData.todaysPL + result.tradePL,
           };
-          const userRef = ref(db, `users/${username}`);
+          
           await update(userRef, instantUpdate);
           
           setUsdBalance(result.usdBalance);
           setBtcBalance(result.btcBalance);
           setAvgBtcCost(result.avgBtcCost);
-
-          const newPL = todaysPL + result.tradePL;
-          setTodaysPL(newPL);
+          setTodaysPL(freshUserData.todaysPL + result.tradePL);
 
           toast({
             title: `Sale Confirmed`,
             description: `+$${result.saleProceeds.toFixed(2)} added to USD. P/L for this trade: $${result.tradePL.toFixed(2)}.`,
             variant: result.tradePL >= 0 ? "default" : "destructive",
           });
-
+          
+          // P/L Settlement
           setTimeout(async () => {
-              const currentPL = newPL;
-              const finalUsdBalance = result.usdBalance + currentPL;
-              
+              const settlementSnapshot = await get(userRef);
+               if (!settlementSnapshot.exists()) {
+                   return;
+               }
+              const plSettleData: UserData = settlementSnapshot.val();
+
               const finalUpdate = {
-                  usdBalance: finalUsdBalance,
+                  usdBalance: plSettleData.usdBalance + plSettleData.todaysPL,
                   todaysPL: 0 
               };
               await update(userRef, finalUpdate);
               
-              setUsdBalance(finalUsdBalance);
+              setUsdBalance(finalUpdate.usdBalance);
               setTodaysPL(0); 
 
               toast({
                   title: 'P/L Realized',
-                  description: `$${currentPL.toFixed(2)} has been settled to your USD balance.`
+                  description: `$${plSettleData.todaysPL.toFixed(2)} has been settled to your USD balance.`
               });
           }, 2000);
         }
@@ -924,7 +934,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div>
-              <CardTitle className="font-headline flex items-center gap-2 text-2xl">
+              <CardTitle className="font-headline flex items-center gap-2 text-xl">
                 {isExtremeMode ? (
                   <>
                     Place Bet
@@ -943,11 +953,9 @@ export default function TradingDashboard() {
                   </>
                 )}
               </CardTitle>
-              <CardDescription>
-                {isExtremeMode
-                  ? "Enter Heavy Ammount."
-                  : "Buy or sell Bitcoin."}
-              </CardDescription>
+               {!isExtremeMode && (
+                <CardDescription>Buy or sell Bitcoin.</CardDescription>
+               )}
             </div>
           </CardHeader>
           <Form {...form}>
@@ -1010,7 +1018,7 @@ export default function TradingDashboard() {
                   onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
                   disabled={isTrading}
                 >
-                  {isTrading && !isExtremeMode ? (
+                  {isTrading && !isExtremeMode && type === 'buy' ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     <ArrowUp />
@@ -1019,7 +1027,7 @@ export default function TradingDashboard() {
                     ? isTrading
                       ? "Placing Bet..."
                       : "Place Bet"
-                    : isTrading
+                    : isTrading && type === 'buy'
                     ? "Buying..."
                     : "Buy"}
                 </Button>
@@ -1028,12 +1036,12 @@ export default function TradingDashboard() {
                   variant="destructive"
                   disabled={isTrading || isExtremeMode}
                 >
-                  {isTrading ? (
+                  {isTrading && type ==='sell' ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     <ArrowDown />
                   )}
-                  {isTrading ? "Selling..." : "Sell"}
+                  {isTrading && type ==='sell' ? "Selling..." : "Sell"}
                 </Button>
               </CardFooter>
             </form>
@@ -1043,10 +1051,7 @@ export default function TradingDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1.5">
-              <CardTitle className="font-headline text-2xl">Portfolio</CardTitle>
-              <CardDescription>
-                Your current assets and total value.
-              </CardDescription>
+              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
             </div>
             <Link href="/about" passHref>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -1061,7 +1066,7 @@ export default function TradingDashboard() {
               <>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Total Value</span>
-                  <span className="text-xl font-bold font-headline">
+                  <span className="text-lg font-bold font-headline">
                     $
                     {portfolioValue.toLocaleString("en-US", {
                       minimumFractionDigits: 2,
@@ -1121,7 +1126,7 @@ export default function TradingDashboard() {
     controlsComponent: React.ReactNode
   ) => (
     <div className="flex flex-col h-full gap-2">
-      <div className="flex-grow rounded-lg overflow-hidden min-h-[40vh] md:min-h-0">
+      <div className="flex-grow rounded-lg overflow-hidden min-h-[30vh] md:min-h-0">
           {animationComponent}
       </div>
       <div className="w-full">
@@ -1336,7 +1341,7 @@ export default function TradingDashboard() {
         )}
       </header>
       <main className="flex-grow p-2 pb-4 overflow-y-auto">
-        <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
+        <Tabs defaultValue="normal" value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-2 shrink-0">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
                 <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
@@ -1422,3 +1427,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
