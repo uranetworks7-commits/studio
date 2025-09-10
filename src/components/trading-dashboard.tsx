@@ -871,6 +871,9 @@ export default function TradingDashboard() {
           title: `Trade Successful`,
           description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
         });
+        setIsTrading(false);
+        setTradeAction(null);
+        form.reset({ amount: values.amount });
       } else { // Sell logic
         const instantUpdate = {
             usdBalance: result.usdBalance,
@@ -892,6 +895,8 @@ export default function TradingDashboard() {
         setTimeout(async () => {
             const settlementSnapshot = await get(userRef);
              if (!settlementSnapshot.exists()) {
+                 setIsTrading(false);
+                 setTradeAction(null);
                  return;
              }
             const plSettleData: UserData = settlementSnapshot.val();
@@ -909,6 +914,10 @@ export default function TradingDashboard() {
                 title: 'P/L Realized',
                 description: `$${plSettleData.todaysPL.toFixed(2)} has been settled to your USD balance.`
             });
+            
+            setIsTrading(false);
+            setTradeAction(null);
+            form.reset({ amount: values.amount });
         }, 2000);
       }
     } catch (err) {
@@ -917,7 +926,6 @@ export default function TradingDashboard() {
         variant: "destructive",
         description: "Error saving trade. Please try again.",
       });
-    } finally {
       setIsTrading(false);
       setTradeAction(null);
       form.reset({ amount: values.amount });
@@ -1454,5 +1462,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
