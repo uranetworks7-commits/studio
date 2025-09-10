@@ -553,16 +553,16 @@ export default function TradingDashboard() {
 
 
   useEffect(() => {
-    const mode = portfolioValue >= EXTREME_MODE_THRESHOLD;
-    if (mode !== isExtremeMode) {
-      setIsExtremeMode(mode);
+    const shouldBeExtreme = portfolioValue >= EXTREME_MODE_THRESHOLD;
+    if (shouldBeExtreme !== isExtremeMode) {
+      setIsExtremeMode(shouldBeExtreme);
       if (tradeMode === 'normal') {
           toast({
-            title: mode ? "Extreme Mode Activated!" : "Normal Mode Restored",
-            description: mode
-              ? "Your portfolio is over $1M. Trading rules have changed."
+            title: shouldBeExtreme ? "Extreme Mode Activated!" : "Normal Mode Restored",
+            description: shouldBeExtreme
+              ? "Your portfolio is over $1M. Normal trading disabled."
               : "Your portfolio is below $1M. Standard trading rules apply.",
-            variant: mode ? "destructive" : "default",
+            variant: shouldBeExtreme ? "destructive" : "default",
           });
       }
     }
@@ -804,6 +804,11 @@ export default function TradingDashboard() {
     const { amount: amountInUsd } = values;
 
     if (isExtremeMode) {
+      toast({
+        title: "Trading Disabled",
+        description: "Normal trading is disabled in Extreme Mode. Use GoldFly or Bit Crash.",
+        variant: "destructive",
+      });
       setIsTrading(false);
       setTradeAction(null);
       return;
@@ -1278,7 +1283,7 @@ export default function TradingDashboard() {
   return (
     <div
       className="flex flex-col h-screen bg-background"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 1rem)' }}
     >
       <header className="p-2 border-b flex flex-col gap-2 shrink-0">
         <div className="flex justify-between items-center">
@@ -1401,3 +1406,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
