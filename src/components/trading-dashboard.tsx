@@ -17,6 +17,7 @@ import {
   Zap,
   Rocket,
   HandCoins,
+  Coins,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -59,6 +60,7 @@ import { Separator } from "./ui/separator";
 import { GoldFlyAnimation } from "./goldfly-animation";
 import { BitCrashAnimation } from "./bit-crash-animation";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 // Custom hook for swipe detection
 const useSwipe = (ref: React.RefObject<HTMLElement>, onSwipe: (direction: 'left' | 'right') => void) => {
@@ -122,7 +124,7 @@ type TradeFormValues = z.infer<typeof formSchema>;
 const INITIAL_PRICE = 65000;
 const PRICE_HISTORY_LENGTH = 400;
 const CANDLESTICK_INTERVAL = 5;
-const EXTREME_MODE_THRESHOLD = 1_000_000;
+const EXTREME_MODE_THRESHOLD = 5_000_000;
 const GOLDFLY_LOCKOUT_THRESHOLD = 10_000_000;
 const BITCRASH_LOCKOUT_THRESHOLD = 25_000_000;
 const GOLDFLY_PAYOUT_RATE = 1.4; // 1.4x payout
@@ -251,6 +253,8 @@ export default function TradingDashboard() {
   });
 
   const [isExtremeMode, setIsExtremeMode] = useState(false);
+  const [coinFlipState, setCoinFlipState] = useState<'idle' | 'flipping' | 'result'>('idle');
+  const [coinFlipResult, setCoinFlipResult] = useState<'win' | 'loss' | null>(null);
 
   const [currentPrice, setCurrentPrice] = useState(INITIAL_PRICE);
   const [priceHistory, setPriceHistory] = useState<PriceData[]>([]);
@@ -556,17 +560,15 @@ export default function TradingDashboard() {
     const shouldBeExtreme = portfolioValue >= EXTREME_MODE_THRESHOLD;
     if (shouldBeExtreme !== isExtremeMode) {
       setIsExtremeMode(shouldBeExtreme);
-      if (tradeMode === 'normal') {
-          toast({
-            title: shouldBeExtreme ? "Extreme Mode Activated!" : "Normal Mode Restored",
-            description: shouldBeExtreme
-              ? "Your portfolio is over $1M. Normal trading disabled."
-              : "Your portfolio is below $1M. Standard trading rules apply.",
-            variant: shouldBeExtreme ? "destructive" : "default",
-          });
-      }
+      toast({
+        title: shouldBeExtreme ? "Extreme Mode Activated!" : "Normal Mode Restored",
+        description: shouldBeExtreme
+          ? "Your portfolio is over $5M. Normal trading is replaced."
+          : "Your portfolio is below $5M. Standard trading rules apply.",
+        variant: shouldBeExtreme ? "destructive" : "default",
+      });
     }
-  }, [portfolioValue, isExtremeMode, toast, tradeMode]);
+  }, [portfolioValue, isExtremeMode, toast]);
 
   useEffect(() => {
     if (!username || tradeMode !== 'normal') return;
@@ -790,6 +792,54 @@ export default function TradingDashboard() {
     setIsTurboRound(false);
   }
 
+  const handleCoinFlip = async (values: TradeFormValues) => {
+    if (isTrading || !username || !values.amount) return;
+
+    if (coinFlipState === 'result') {
+        setCoinFlipState('idle');
+        setCoinFlipResult(null);
+        form.reset();
+        return;
+    }
+
+    setIsTrading(true);
+    setCoinFlipState('flipping');
+    
+    const betAmount = values.amount;
+    if (betAmount > usdBalance) {
+        toast({ variant: 'destructive', description: "Insufficient USD to place this bet." });
+        setIsTrading(false);
+        setCoinFlipState('idle');
+        return;
+    }
+
+    const newUsdBalance = usdBalance - betAmount;
+    setUsdBalance(newUsdBalance);
+    const userRef = ref(db, `users/${username}`);
+    await update(userRef, { usdBalance: newUsdBalance });
+
+    setTimeout(async () => {
+        const isWin = Math.random() < 0.10; // 10% win rate
+        let finalUsdBalance = newUsdBalance;
+        
+        if (isWin) {
+            setCoinFlipResult('win');
+            const winnings = betAmount * 1.9;
+            finalUsdBalance += winnings;
+            toast({ title: "You Won! 🎉", description: `You won $${winnings.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}!` });
+        } else {
+            setCoinFlipResult('loss');
+            toast({ title: "You Lost ❌", description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}.`, variant: 'destructive' });
+        }
+
+        setUsdBalance(finalUsdBalance);
+        await update(userRef, { usdBalance: finalUsdBalance });
+
+        setCoinFlipState('result');
+        setIsTrading(false);
+    }, 3000); // 3 second flip animation
+  };
+
   const handleTrade = async (
     values: TradeFormValues,
     type: "buy" | "sell"
@@ -806,7 +856,7 @@ export default function TradingDashboard() {
     if (isExtremeMode) {
       toast({
         title: "Trading Disabled",
-        description: "Normal trading is disabled in Extreme Mode. Use GoldFly or Bit Crash.",
+        description: "Normal trading is disabled in Extreme Mode. Use other modes.",
         variant: "destructive",
       });
       setIsTrading(false);
@@ -944,6 +994,77 @@ export default function TradingDashboard() {
     );
   }
 
+  const renderExtremeModeUI = () => (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-headline flex items-center gap-2 text-xl text-destructive">
+            <Coins className="h-5 w-5" />
+            Extreme Mode
+          </CardTitle>
+          <div className="flex items-center gap-2 text-sm">
+            <Landmark className="h-4 w-4 text-primary" />
+            <span className="font-mono">
+                ${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+        <CardDescription>High risk, high reward. Flip a coin.</CardDescription>
+      </CardHeader>
+      <Form {...form}>
+        <form onSubmit={(e) => e.preventDefault()}>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center items-center h-24">
+              {coinFlipState === 'idle' && <Coins className="h-20 w-20 text-yellow-400" />}
+              {coinFlipState === 'flipping' && <Coins className="h-20 w-20 text-yellow-400 animate-spin" />}
+              {coinFlipState === 'result' && (
+                <div className="text-center">
+                  <p className={cn("text-3xl font-bold", coinFlipResult === 'win' ? 'text-green-500' : 'text-red-500')}>
+                    {coinFlipResult === 'win' ? 'You Won!' : 'You Lost!'}
+                  </p>
+                </div>
+              )}
+            </div>
+            <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Bet Amount (USD)</FormLabel>
+                        <FormControl>
+                            <Input
+                                placeholder="10000.00"
+                                {...field}
+                                type="number"
+                                step="0.01"
+                                disabled={isTrading || coinFlipState !== 'idle'}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                }}
+                                value={field.value ?? ""}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={form.handleSubmit(handleCoinFlip)} 
+              disabled={isTrading || (coinFlipState !== 'idle' && coinFlipState !== 'result')}
+              className="w-full"
+            >
+              {isTrading && coinFlipState === 'flipping' && <Loader2 className="animate-spin" />}
+              {coinFlipState === 'result' ? 'Flip Again' : 'Flip Coin'}
+            </Button>
+          </CardFooter>
+        </form>
+      </Form>
+    </Card>
+  );
+
   const renderNormalTradeUI = () => (
     <div className="flex flex-col h-full lg:flex-row lg:gap-6">
         {/* Main Content: Chart on top (mobile), left (desktop) */}
@@ -957,80 +1078,75 @@ export default function TradingDashboard() {
         
         {/* Controls: On bottom (mobile), right (desktop) */}
         <div className="flex flex-col gap-4 p-2 lg:p-0 lg:w-[320px] lg:shrink-0">
-            <Card>
-                <CardHeader className="flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                            New Trade
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
-                                <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
-                            </svg>
-                        </CardTitle>
-                        <CardDescription>Buy or sell Bitcoin.</CardDescription>
-                    </div>
-                </CardHeader>
-                <Form {...form}>
-                    <form onSubmit={(e) => e.preventDefault()}>
-                        <CardContent className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="amount"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Amount (USD)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="100.00"
-                                                {...field}
-                                                type="number"
-                                                step="0.01"
-                                                disabled={isTrading}
-                                                onChange={(e) => {
-                                                    const value = e.target.value;
-                                                    field.onChange(value === "" ? undefined : Number(value));
-                                                }}
-                                                value={field.value ?? ""}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormItem>
-                                <FormLabel>Chart Type</FormLabel>
-                                <Select
-                                    onValueChange={(value: "area" | "candlestick") => setChartType(value)}
-                                    defaultValue={chartType}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select chart type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="area">Area</SelectItem>
-                                        <SelectItem value="candlestick">Candlestick</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </FormItem>
-                        </CardContent>
-                        <CardFooter className="grid grid-cols-2 gap-4">
-                            <Button onClick={form.handleSubmit((v) => handleTrade(v, "buy"))} disabled={isTrading}>
-                                {isTrading && tradeAction === 'buy' ? <Loader2 className="animate-spin" /> : <ArrowUp />}
-                                {isTrading && tradeAction === 'buy' ? "Buying..." : "Buy"}
-                            </Button>
-                            <Button onClick={form.handleSubmit((v) => handleTrade(v, "sell"))} variant="destructive" disabled={isTrading}>
-                                {isTrading && tradeAction === 'sell' ? <Loader2 className="animate-spin" /> : <ArrowDown />}
-                                {isTrading && tradeAction === 'sell' ? "Selling..." : "Sell"}
-                            </Button>
-                        </CardFooter>
-                    </form>
-                </Form>
-            </Card>
+            {isExtremeMode ? renderExtremeModeUI() : (
+              <Card>
+                  <CardHeader className="flex-row items-center justify-between">
+                      <div>
+                          <CardTitle className="font-headline flex items-center gap-2 text-xl">
+                              New Trade
+                          </CardTitle>
+                          <CardDescription>Buy or sell Bitcoin.</CardDescription>
+                      </div>
+                  </CardHeader>
+                  <Form {...form}>
+                      <form onSubmit={(e) => e.preventDefault()}>
+                          <CardContent className="space-y-4">
+                              <FormField
+                                  control={form.control}
+                                  name="amount"
+                                  render={({ field }) => (
+                                      <FormItem>
+                                          <FormLabel>Amount (USD)</FormLabel>
+                                          <FormControl>
+                                              <Input
+                                                  placeholder="100.00"
+                                                  {...field}
+                                                  type="number"
+                                                  step="0.01"
+                                                  disabled={isTrading}
+                                                  onChange={(e) => {
+                                                      const value = e.target.value;
+                                                      field.onChange(value === "" ? undefined : Number(value));
+                                                  }}
+                                                  value={field.value ?? ""}
+                                              />
+                                          </FormControl>
+                                          <FormMessage />
+                                      </FormItem>
+                                  )}
+                              />
+                              <FormItem>
+                                  <FormLabel>Chart Type</FormLabel>
+                                  <Select
+                                      onValueChange={(value: "area" | "candlestick") => setChartType(value)}
+                                      defaultValue={chartType}
+                                  >
+                                      <FormControl>
+                                          <SelectTrigger>
+                                              <SelectValue placeholder="Select chart type" />
+                                          </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                          <SelectItem value="area">Area</SelectItem>
+                                          <SelectItem value="candlestick">Candlestick</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </FormItem>
+                          </CardContent>
+                          <CardFooter className="grid grid-cols-2 gap-4">
+                              <Button onClick={form.handleSubmit((v) => handleTrade(v, "buy"))} disabled={isTrading}>
+                                  {isTrading && tradeAction === 'buy' ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+                                  {isTrading && tradeAction === 'buy' ? "Buying..." : "Buy"}
+                              </Button>
+                              <Button onClick={form.handleSubmit((v) => handleTrade(v, "sell"))} variant="destructive" disabled={isTrading}>
+                                  {isTrading && tradeAction === 'sell' ? <Loader2 className="animate-spin" /> : <ArrowDown />}
+                                  {isTrading && tradeAction === 'sell' ? "Selling..." : "Sell"}
+                              </Button>
+                          </CardFooter>
+                      </form>
+                  </Form>
+              </Card>
+            )}
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -1406,5 +1522,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
