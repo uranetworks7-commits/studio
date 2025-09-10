@@ -18,6 +18,7 @@ import {
   Rocket,
   HandCoins,
   Coins,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -829,7 +830,19 @@ export default function TradingDashboard() {
             toast({ title: "You Won! 🎉", description: `You won $${winnings.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}!` });
         } else {
             setCoinFlipResult('loss');
-            toast({ title: "You Lost ❌", description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}.`, variant: 'destructive' });
+            toast({
+              title: (
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-5 w-5" />
+                  You Lost!
+                </div>
+              ),
+              description: `You lost $${betAmount.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}.`,
+              variant: 'destructive',
+            });
         }
 
         setUsdBalance(finalUsdBalance);
@@ -1522,3 +1535,4 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
