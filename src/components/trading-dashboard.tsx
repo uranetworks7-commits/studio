@@ -856,6 +856,8 @@ export default function TradingDashboard() {
             title: `Trade Successful`,
             description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
           });
+          setIsTrading(false);
+          setTradeAction(null);
         } else { // Sell logic
           
           const instantUpdate = {
@@ -912,6 +914,8 @@ export default function TradingDashboard() {
           variant: "destructive",
           description: "Error saving trade. Please try again.",
         });
+        setIsTrading(false);
+        setTradeAction(null);
       } finally {
         if(type === 'buy') {
             setIsTrading(false);
@@ -1343,7 +1347,7 @@ export default function TradingDashboard() {
         </div>
         {username && (
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <User className="h-4 w-4" />
               <span>{username}</span>
             </div>
@@ -1356,17 +1360,12 @@ export default function TradingDashboard() {
           </div>
         )}
       </header>
-      <main className="flex-grow p-2 pb-4 overflow-y-auto">
+      <main className="flex-grow p-2 overflow-y-auto">
         <Tabs defaultValue="normal" value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-2 shrink-0">
-                <TabsTrigger value="normal">Normal</TabsTrigger>
-                <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
-                <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
-            </TabsList>
-            <TabsContent value="normal" className="flex-grow">
+            <TabsContent value="normal" className="flex-grow mt-0">
                 {renderNormalTradeUI()}
             </TabsContent>
-            <TabsContent value="goldfly" className="flex-grow">
+            <TabsContent value="goldfly" className="flex-grow mt-0">
                  {renderGameUI(
                     'goldfly',
                     <GoldFlyAnimation 
@@ -1379,7 +1378,7 @@ export default function TradingDashboard() {
                     goldFlyControls
                  )}
             </TabsContent>
-             <TabsContent value="bitcrash" className="flex-grow">
+             <TabsContent value="bitcrash" className="flex-grow mt-0">
                  {renderGameUI(
                     'bitcrash',
                     <BitCrashAnimation
@@ -1390,6 +1389,11 @@ export default function TradingDashboard() {
                     bitCrashControls
                  )}
             </TabsContent>
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto shrink-0 mt-2">
+                <TabsTrigger value="normal">Normal</TabsTrigger>
+                <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
+                <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
+            </TabsList>
         </Tabs>
       </main>
 
@@ -1443,5 +1447,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
