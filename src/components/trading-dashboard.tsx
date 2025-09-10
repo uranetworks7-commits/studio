@@ -59,7 +59,6 @@ import { Separator } from "./ui/separator";
 import { GoldFlyAnimation } from "./goldfly-animation";
 import { BitCrashAnimation } from "./bit-crash-animation";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
-import { cn } from "@/lib/utils";
 
 // Custom hook for swipe detection
 const useSwipe = (ref: React.RefObject<HTMLElement>, onSwipe: (direction: 'left' | 'right') => void) => {
@@ -941,202 +940,147 @@ export default function TradingDashboard() {
   }
 
   const renderNormalTradeUI = () => (
-    <div className="flex flex-col h-full gap-4 md:gap-6">
-      <div className="lg:col-span-2 h-[50vh] lg:h-auto lg:flex-grow">
-        <PriceChart
-          data={priceHistory}
-          currentPrice={currentPrice}
-          chartType={chartType}
-        />
-      </div>
-
-      <div className="flex flex-col gap-4 md:gap-6 lg:w-[320px] lg:shrink-0">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                {isExtremeMode ? (
-                  <>
-                    Place Bet
-                    <Zap className="h-5 w-5 text-destructive" />
-                  </>
-                ) : (
-                  <>
-                    New Trade
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
-                      <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
-                    </svg>
-                  </>
-                )}
-              </CardTitle>
-               {!isExtremeMode && (
-                <CardDescription>Buy or sell Bitcoin.</CardDescription>
-               )}
-            </div>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {isExtremeMode
-                          ? "Bet Amount (USD)"
-                          : "Amount (USD)"}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="100.00"
-                          {...field}
-                          type="number"
-                          step="0.01"
-                          disabled={isTrading}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value === "" ? undefined : Number(value));
-                          }}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {!isExtremeMode && (
-                  <FormItem>
-                    <FormLabel>Chart Type</FormLabel>
-                    <Select
-                      onValueChange={(value: "area" | "candlestick") =>
-                        setChartType(value)
-                      }
-                      defaultValue={chartType}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select chart type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="area">Area</SelectItem>
-                        <SelectItem value="candlestick">
-                          Candlestick
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              </CardContent>
-              <CardFooter className="grid grid-cols-2 gap-4">
-                <Button
-                  onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
-                  disabled={isTrading}
-                >
-                  {isTrading && tradeAction === 'buy' ? (
-                    <Loader2 className="animate-spin mr-2" />
-                  ) : (
-                    <ArrowUp />
-                  )}
-                  {isExtremeMode
-                    ? isTrading
-                      ? "Placing Bet..."
-                      : "Place Bet"
-                    : isTrading && tradeAction === 'buy'
-                    ? "Buying..."
-                    : "Buy"}
-                </Button>
-                <Button
-                  onClick={form.handleSubmit((v) => handleTrade(v, "sell"))}
-                  variant="destructive"
-                  disabled={isTrading || isExtremeMode}
-                >
-                  {isTrading && tradeAction === 'sell' ? (
-                    <Loader2 className="animate-spin mr-2" />
-                  ) : (
-                    <ArrowDown />
-                  )}
-                  {isTrading && tradeAction === 'sell' ? "Selling..." : "Sell"}
-                </Button>
-              </CardFooter>
-            </form>
-          </Form>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1.5">
-              <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
-            </div>
-            <Link href="/about" passHref>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info className="h-4 w-4" />
-                <span className="sr-only">About</span>
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            {typeof usdBalance === "number" &&
-            typeof btcBalance === "number" ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Total Value</span>
-                  <span className="text-lg font-bold font-headline">
-                    $
-                    {portfolioValue.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Landmark className="h-5 w-5 text-primary" />
-                    <span>USD Balance</span>
-                  </div>
-                  <span>
-                    $
-                    {usdBalance.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bitcoin className="h-5 w-5 text-primary" />
-                    <span>BTC Balance</span>
-                  </div>
-                  <span>{btcBalance.toFixed(8)}</span>
-                </div>
-                {!isExtremeMode && (
-                    <>
-                    <Separator />
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <ArrowRightLeft className="h-4 w-4" />
-                            <span>Today's P/L</span>
-                        </div>
-                        <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
-                            ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+    <div className="flex flex-col h-full lg:flex-row lg:gap-6">
+        {/* Main Content: Chart on top (mobile), left (desktop) */}
+        <div className="lg:flex-grow lg:h-full h-[50vh]">
+            <PriceChart
+                data={priceHistory}
+                currentPrice={currentPrice}
+                chartType={chartType}
+            />
+        </div>
+        
+        {/* Controls: On bottom (mobile), right (desktop) */}
+        <div className="flex flex-col gap-4 p-2 lg:p-0 lg:w-[320px] lg:shrink-0">
+            <Card>
+                <CardHeader className="flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="font-headline flex items-center gap-2 text-xl">
+                            New Trade
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2L2 7l10 5 10-5-10-5z" fill="transparent" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M15.5 8.5a3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 2 3 4.5 3 4.5s3-2.5 3-4.5z" fill="hsl(var(--chart-1))" stroke="white" strokeWidth="1"/>
+                                <path d="M11 7.5a1 1 0 0 1 1-1" stroke="white" strokeWidth="0.5" strokeLinecap="round"/>
+                            </svg>
+                        </CardTitle>
+                        <CardDescription>Buy or sell Bitcoin.</CardDescription>
                     </div>
-                    </>
-                )}
-              </>
-            ) : (
-              <div className="flex justify-center items-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </CardHeader>
+                <Form {...form}>
+                    <form onSubmit={(e) => e.preventDefault()}>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="amount"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Amount (USD)</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="100.00"
+                                                {...field}
+                                                type="number"
+                                                step="0.01"
+                                                disabled={isTrading}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    field.onChange(value === "" ? undefined : Number(value));
+                                                }}
+                                                value={field.value ?? ""}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormItem>
+                                <FormLabel>Chart Type</FormLabel>
+                                <Select
+                                    onValueChange={(value: "area" | "candlestick") => setChartType(value)}
+                                    defaultValue={chartType}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select chart type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="area">Area</SelectItem>
+                                        <SelectItem value="candlestick">Candlestick</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        </CardContent>
+                        <CardFooter className="grid grid-cols-2 gap-4">
+                            <Button onClick={form.handleSubmit((v) => handleTrade(v, "buy"))} disabled={isTrading}>
+                                {isTrading && tradeAction === 'buy' ? <Loader2 className="animate-spin" /> : <ArrowUp />}
+                                {isTrading && tradeAction === 'buy' ? "Buying..." : "Buy"}
+                            </Button>
+                            <Button onClick={form.handleSubmit((v) => handleTrade(v, "sell"))} variant="destructive" disabled={isTrading}>
+                                {isTrading && tradeAction === 'sell' ? <Loader2 className="animate-spin" /> : <ArrowDown />}
+                                {isTrading && tradeAction === 'sell' ? "Selling..." : "Sell"}
+                            </Button>
+                        </CardFooter>
+                    </form>
+                </Form>
+            </Card>
+
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div className="space-y-1.5">
+                        <CardTitle className="font-headline text-xl">Portfolio</CardTitle>
+                    </div>
+                    <Link href="/about" passHref>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Info className="h-4 w-4" />
+                            <span className="sr-only">About</span>
+                        </Button>
+                    </Link>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-4">
+                    {typeof usdBalance === "number" && typeof btcBalance === "number" ? (
+                        <>
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Total Value</span>
+                                <span className="text-lg font-bold font-headline">
+                                    ${portfolioValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Landmark className="h-5 w-5 text-primary" />
+                                    <span>USD Balance</span>
+                                </div>
+                                <span>${usdBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Bitcoin className="h-5 w-5 text-primary" />
+                                    <span>BTC Balance</span>
+                                </div>
+                                <span>{btcBalance.toFixed(8)}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between text-sm">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <ArrowRightLeft className="h-4 w-4" />
+                                    <span>Today's P/L</span>
+                                </div>
+                                <span className={todaysPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                    ${todaysPL.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="flex justify-center items-center h-full">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
     </div>
   );
   
@@ -1374,10 +1318,8 @@ export default function TradingDashboard() {
             className="flex transition-transform duration-300 ease-in-out h-full"
             style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
             >
-            <div className="w-full shrink-0 h-full p-2 overflow-y-auto">
-                <div className="flex flex-col lg:flex-row h-full w-full gap-4 md:gap-6">
-                    {renderNormalTradeUI()}
-                </div>
+            <div className="w-full shrink-0 h-full overflow-y-auto">
+                {renderNormalTradeUI()}
             </div>
             <div className="w-full shrink-0 h-full p-2">
                 {renderGameUI(
@@ -1456,5 +1398,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
