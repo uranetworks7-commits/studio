@@ -871,9 +871,6 @@ export default function TradingDashboard() {
           title: `Trade Successful`,
           description: `Bought ${result.btcAmountTraded.toFixed(8)} BTC for $${amountInUsd.toFixed(2)}.`,
         });
-        setIsTrading(false);
-        setTradeAction(null);
-        form.reset({ amount: values.amount });
       } else { // Sell logic
         const instantUpdate = {
             usdBalance: result.usdBalance,
@@ -892,33 +889,29 @@ export default function TradingDashboard() {
           variant: result.tradePL >= 0 ? "default" : "destructive",
         });
         
-        setTimeout(async () => {
-            const settlementSnapshot = await get(userRef);
-             if (!settlementSnapshot.exists()) {
-                 setIsTrading(false);
-                 setTradeAction(null);
-                 return;
-             }
-            const plSettleData: UserData = settlementSnapshot.val();
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const settlementSnapshot = await get(userRef);
+          if (!settlementSnapshot.exists()) {
+              setIsTrading(false);
+              setTradeAction(null);
+              return;
+          }
+        const plSettleData: UserData = settlementSnapshot.val();
 
-            const finalUpdate = {
-                usdBalance: plSettleData.usdBalance + plSettleData.todaysPL,
-                todaysPL: 0 
-            };
-            await update(userRef, finalUpdate);
-            
-            setUsdBalance(finalUpdate.usdBalance);
-            setTodaysPL(0); 
+        const finalUpdate = {
+            usdBalance: plSettleData.usdBalance + plSettleData.todaysPL,
+            todaysPL: 0 
+        };
+        await update(userRef, finalUpdate);
+        
+        setUsdBalance(finalUpdate.usdBalance);
+        setTodaysPL(0); 
 
-            toast({
-                title: 'P/L Realized',
-                description: `$${plSettleData.todaysPL.toFixed(2)} has been settled to your USD balance.`
-            });
-            
-            setIsTrading(false);
-            setTradeAction(null);
-            form.reset({ amount: values.amount });
-        }, 2000);
+        toast({
+            title: 'P/L Realized',
+            description: `$${plSettleData.todaysPL.toFixed(2)} has been settled to your USD balance.`
+        });
       }
     } catch (err) {
       console.error("Firebase error during trade: ", err);
@@ -926,9 +919,10 @@ export default function TradingDashboard() {
         variant: "destructive",
         description: "Error saving trade. Please try again.",
       });
-      setIsTrading(false);
-      setTradeAction(null);
-      form.reset({ amount: values.amount });
+    } finally {
+        setIsTrading(false);
+        setTradeAction(null);
+        form.reset({ amount: values.amount });
     }
   };
 
@@ -1339,44 +1333,52 @@ export default function TradingDashboard() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <header className="p-2 border-b flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg md:text-2xl font-headline font-bold text-primary">
-            URA Trade
-          </h1>
-          {tradeMode === 'normal' && <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
-            <span>Market:</span>
-            <span className="font-bold text-foreground">
-              {priceRegime === 'MID' ? `${trendRef.current} Trend` : priceRegimes[priceRegime].name}
-            </span>
-          </div>}
-        </div>
-        {username && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{username}</span>
+      <header className="p-2 border-b flex flex-col gap-2 shrink-0">
+        <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <h1 className="text-lg md:text-2xl font-headline font-bold text-primary">
+                    URA Trade
+                </h1>
+                {tradeMode === 'normal' && <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                    <span>Market:</span>
+                    <span className="font-bold text-foreground">
+                    {priceRegime === 'MID' ? `${trendRef.current} Trend` : priceRegimes[priceRegime].name}
+                    </span>
+                </div>}
             </div>
-            <Button variant="outline" size="icon" onClick={handleFeedback} className="h-8 w-8">
-              <ThumbsUp className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" onClick={handleLogout} className="h-8 w-8">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+            {username && (
+            <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                <span>{username}</span>
+                </div>
+                <Button variant="outline" size="icon" onClick={handleFeedback} className="h-8 w-8">
+                <ThumbsUp className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={handleLogout} className="h-8 w-8">
+                <LogOut className="h-4 w-4" />
+                </Button>
+            </div>
+            )}
+        </div>
+         <Tabs value={tradeMode} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+              <TabsTrigger value="normal">Normal</TabsTrigger>
+              <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
+              <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
+            </TabsList>
+          </Tabs>
       </header>
-      <main className="flex-1 flex flex-col overflow-y-auto" ref={swipeContainerRef}>
-        <div className="flex-grow w-full overflow-x-hidden">
-          <div
+      <main className="flex-grow w-full overflow-y-auto" ref={swipeContainerRef}>
+        <div
             className="flex transition-transform duration-300 ease-in-out h-full"
             style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
-          >
+            >
             <div className="w-full shrink-0 h-full p-2 pb-4 overflow-y-auto">
-              {renderNormalTradeUI()}
+                {renderNormalTradeUI()}
             </div>
             <div className="w-full shrink-0 h-full p-2 pb-4">
-              {renderGameUI(
+                {renderGameUI(
                 'goldfly',
                 <GoldFlyAnimation 
                     ref={planeRef}
@@ -1386,10 +1388,10 @@ export default function TradingDashboard() {
                     onAnimationComplete={handleGoldFlyAnimationComplete}
                 />,
                 goldFlyControls
-              )}
+                )}
             </div>
             <div className="w-full shrink-0 h-full p-2 pb-4">
-              {renderGameUI(
+                {renderGameUI(
                 'bitcrash',
                 <BitCrashAnimation
                     gameState={bitCrashState}
@@ -1397,19 +1399,9 @@ export default function TradingDashboard() {
                     isTurboRound={isTurboRound}
                 />,
                 bitCrashControls
-              )}
+                )}
             </div>
-          </div>
         </div>
-        <footer className="shrink-0 p-2 border-t">
-          <Tabs value={tradeMode} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-              <TabsTrigger value="normal">Normal</TabsTrigger>
-              <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
-              <TabsTrigger value="bitcrash">Bit Crash</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </footer>
       </main>
 
        {/* GoldFly Rules Dialog */}
