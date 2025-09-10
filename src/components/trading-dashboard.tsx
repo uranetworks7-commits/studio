@@ -941,8 +941,8 @@ export default function TradingDashboard() {
   }
 
   const renderNormalTradeUI = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 h-full">
-      <div className="lg:col-span-2 h-[50vh] lg:h-auto">
+    <div className="flex flex-col h-full gap-4 md:gap-6">
+      <div className="lg:col-span-2 h-[50vh] lg:h-auto lg:flex-grow">
         <PriceChart
           data={priceHistory}
           currentPrice={currentPrice}
@@ -950,7 +950,7 @@ export default function TradingDashboard() {
         />
       </div>
 
-      <div className="flex flex-col gap-4 md:gap-6">
+      <div className="flex flex-col gap-4 md:gap-6 lg:w-[320px] lg:shrink-0">
         <Card>
           <CardHeader className="flex-row items-center justify-between">
             <div>
@@ -1375,7 +1375,9 @@ export default function TradingDashboard() {
             style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
             >
             <div className="w-full shrink-0 h-full p-2 overflow-y-auto">
-                {renderNormalTradeUI()}
+                <div className="flex flex-col lg:flex-row h-full w-full gap-4 md:gap-6">
+                    {renderNormalTradeUI()}
+                </div>
             </div>
             <div className="w-full shrink-0 h-full p-2">
                 {renderGameUI(
@@ -1454,3 +1456,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
