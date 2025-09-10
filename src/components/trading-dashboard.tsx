@@ -722,9 +722,8 @@ export default function TradingDashboard() {
   ) => {
     if (isTrading || !username || !values.amount) return;
 
-    const { amount: amountInUsd } = values;
-
     setIsTrading(true);
+    const { amount: amountInUsd } = values;
 
     if (isExtremeMode) {
       if (type === "sell") {
@@ -1333,7 +1332,7 @@ export default function TradingDashboard() {
           </div>
         )}
       </header>
-      <main className="flex-grow p-2 overflow-y-auto">
+      <main className="flex-grow p-2 pb-4 overflow-y-auto">
         <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full h-full flex flex-col">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-2 shrink-0">
                 <TabsTrigger value="normal">Normal</TabsTrigger>
@@ -1369,8 +1368,6 @@ export default function TradingDashboard() {
             </TabsContent>
         </Tabs>
       </main>
-      <div className="h-4 bg-black w-full shrink-0" />
-
 
        {/* GoldFly Rules Dialog */}
       <AlertDialog open={isGoldFlyRulesOpen} onOpenChange={setIsGoldFlyRulesOpen}>
