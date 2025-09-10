@@ -173,6 +173,7 @@ export default function TradingDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
+  const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | null>(null);
   
   const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [todaysPL, setTodaysPL] = useState<number>(0);
@@ -726,6 +727,7 @@ export default function TradingDashboard() {
     if (isTrading || !username || !values.amount) return;
 
     setIsTrading(true);
+    setTradeAction(type);
     const { amount: amountInUsd } = values;
 
     if (isExtremeMode) {
@@ -735,6 +737,7 @@ export default function TradingDashboard() {
           description: "Sell option is disabled in Extreme Mode.",
         });
         setIsTrading(false);
+        setTradeAction(null);
         return;
       }
 
@@ -744,6 +747,7 @@ export default function TradingDashboard() {
           description: "Insufficient USD to place this bet.",
         });
         setIsTrading(false);
+        setTradeAction(null);
         return;
       }
 
@@ -781,6 +785,7 @@ export default function TradingDashboard() {
         });
       } finally {
         setIsTrading(false);
+        setTradeAction(null);
         form.reset({ amount: values.amount });
       }
     } else {
@@ -791,6 +796,7 @@ export default function TradingDashboard() {
               description: "Insufficient USD to place this trade.",
             });
             setIsTrading(false);
+            setTradeAction(null);
             return;
           }
         } else { // sell
@@ -801,6 +807,7 @@ export default function TradingDashboard() {
               description: `Insufficient BTC balance. You only have ${btcBalance.toFixed(8)} BTC.`,
             });
             setIsTrading(false);
+            setTradeAction(null);
             return;
           }
         }
@@ -813,6 +820,7 @@ export default function TradingDashboard() {
       if (!snapshot.exists()) {
           toast({ variant: "destructive", description: "User data not found." });
           setIsTrading(false);
+          setTradeAction(null);
           return;
       }
       const freshUserData: UserData = snapshot.val();
@@ -874,6 +882,8 @@ export default function TradingDashboard() {
           setTimeout(async () => {
               const settlementSnapshot = await get(userRef);
                if (!settlementSnapshot.exists()) {
+                   setIsTrading(false);
+                   setTradeAction(null);
                    return;
                }
               const plSettleData: UserData = settlementSnapshot.val();
@@ -891,6 +901,9 @@ export default function TradingDashboard() {
                   title: 'P/L Realized',
                   description: `$${plSettleData.todaysPL.toFixed(2)} has been settled to your USD balance.`
               });
+
+              setIsTrading(false);
+              setTradeAction(null);
           }, 2000);
         }
       } catch (err) {
@@ -900,7 +913,10 @@ export default function TradingDashboard() {
           description: "Error saving trade. Please try again.",
         });
       } finally {
-        setIsTrading(false);
+        if(type === 'buy') {
+            setIsTrading(false);
+            setTradeAction(null);
+        }
         form.reset({ amount: values.amount });
       }
     }
@@ -1018,7 +1034,7 @@ export default function TradingDashboard() {
                   onClick={form.handleSubmit((v) => handleTrade(v, "buy"))}
                   disabled={isTrading}
                 >
-                  {isTrading && !isExtremeMode && type === 'buy' ? (
+                  {isTrading && tradeAction === 'buy' ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     <ArrowUp />
@@ -1027,7 +1043,7 @@ export default function TradingDashboard() {
                     ? isTrading
                       ? "Placing Bet..."
                       : "Place Bet"
-                    : isTrading && type === 'buy'
+                    : isTrading && tradeAction === 'buy'
                     ? "Buying..."
                     : "Buy"}
                 </Button>
@@ -1036,12 +1052,12 @@ export default function TradingDashboard() {
                   variant="destructive"
                   disabled={isTrading || isExtremeMode}
                 >
-                  {isTrading && type ==='sell' ? (
+                  {isTrading && tradeAction ==='sell' ? (
                     <Loader2 className="animate-spin mr-2" />
                   ) : (
                     <ArrowDown />
                   )}
-                  {isTrading && type ==='sell' ? "Selling..." : "Sell"}
+                  {isTrading && tradeAction ==='sell' ? "Selling..." : "Sell"}
                 </Button>
               </CardFooter>
             </form>
