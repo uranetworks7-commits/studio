@@ -1276,7 +1276,10 @@ export default function TradingDashboard() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div
+      className="flex flex-col h-screen bg-background"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <header className="p-2 border-b flex flex-col gap-2 shrink-0">
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
