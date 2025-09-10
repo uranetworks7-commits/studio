@@ -107,7 +107,7 @@ const useSwipe = (ref: React.RefObject<HTMLElement>, onSwipe: (direction: 'left'
       target.removeEventListener('touchmove', handleTouchMove);
       target.removeEventListener('touchend', handleTouchEnd);
     };
-  });
+  }, [ref, onSwipe]);
 };
 
 
@@ -799,13 +799,7 @@ export default function TradingDashboard() {
     values: TradeFormValues,
     type: "buy" | "sell"
   ) => {
-    if (!username || !values.amount) return;
-
-    // Prevent any trades while one is in progress
-    if (isTrading) {
-      toast({ variant: 'destructive', description: 'Please wait for the current transaction to complete.' });
-      return;
-    }
+    if (isTrading || !username || !values.amount) return;
 
     setIsTrading(true);
     setTradeAction(type);
@@ -815,13 +809,11 @@ export default function TradingDashboard() {
     const { amount: amountInUsd } = values;
 
     if (isExtremeMode) {
-      // Logic for extreme mode... (no changes here based on request)
       setIsTrading(false);
       setTradeAction(null);
       return;
     }
       
-    // Normal Mode Logic
     if (type === "buy") {
       if (amountInUsd > usdBalance) {
         toast({
@@ -901,7 +893,6 @@ export default function TradingDashboard() {
           variant: result.tradePL >= 0 ? "default" : "destructive",
         });
         
-        // P/L Settlement Delay
         setTimeout(async () => {
             const settlementSnapshot = await get(userRef);
              if (!settlementSnapshot.exists()) {
@@ -931,7 +922,6 @@ export default function TradingDashboard() {
         description: "Error saving trade. Please try again.",
       });
     } finally {
-      // Re-enable buttons AFTER the whole process is done
       setIsTrading(false);
       setTradeAction(null);
       form.reset({ amount: values.amount });
@@ -1378,10 +1368,10 @@ export default function TradingDashboard() {
             className="flex transition-transform duration-300 ease-in-out h-full"
             style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
           >
-            <div className="w-full shrink-0 h-full p-2 overflow-y-auto">
+            <div className="w-full shrink-0 h-full p-2 pb-4 overflow-y-auto">
               {renderNormalTradeUI()}
             </div>
-            <div className="w-full shrink-0 h-full p-2">
+            <div className="w-full shrink-0 h-full p-2 pb-4">
               {renderGameUI(
                 'goldfly',
                 <GoldFlyAnimation 
@@ -1394,7 +1384,7 @@ export default function TradingDashboard() {
                 goldFlyControls
               )}
             </div>
-            <div className="w-full shrink-0 h-full p-2">
+            <div className="w-full shrink-0 h-full p-2 pb-4">
               {renderGameUI(
                 'bitcrash',
                 <BitCrashAnimation
@@ -1468,3 +1458,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
