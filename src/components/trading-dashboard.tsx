@@ -277,14 +277,10 @@ export default function TradingDashboard() {
     setTradeMode(tradeModes[activeTabIndex]);
   }, [activeTabIndex]);
 
-  useEffect(() => {
-    const newIndex = tradeModes.indexOf(tradeMode);
-    if (newIndex !== activeTabIndex) {
-      setActiveTabIndex(newIndex);
-    }
-  }, [tradeMode, activeTabIndex]);
-
-
+  const handleTabChange = (value: string) => {
+    const newIndex = tradeModes.indexOf(value as TradeMode);
+    setActiveTabIndex(newIndex);
+  };
   
   // GoldFly State
   const [goldFlyState, setGoldFlyState] = useState<'idle' | 'running' | 'finished'>('idle');
@@ -1398,7 +1394,7 @@ export default function TradingDashboard() {
           </div>
         </div>
         <footer className="shrink-0 p-2 border-t">
-          <Tabs value={tradeMode} onValueChange={(value) => setTradeMode(value as TradeMode)} className="w-full">
+          <Tabs value={tradeMode} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
               <TabsTrigger value="normal">Normal</TabsTrigger>
               <TabsTrigger value="goldfly">GoldFly</TabsTrigger>
