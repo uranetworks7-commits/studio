@@ -1369,15 +1369,15 @@ export default function TradingDashboard() {
             </TabsList>
           </Tabs>
       </header>
-      <main className="flex-grow w-full overflow-y-auto" ref={swipeContainerRef}>
+      <main className="flex-grow w-full overflow-hidden" ref={swipeContainerRef}>
         <div
             className="flex transition-transform duration-300 ease-in-out h-full"
             style={{ transform: `translateX(-${activeTabIndex * 100}%)` }}
             >
-            <div className="w-full shrink-0 h-full p-2 pb-4 overflow-y-auto">
+            <div className="w-full shrink-0 h-full p-2 overflow-y-auto">
                 {renderNormalTradeUI()}
             </div>
-            <div className="w-full shrink-0 h-full p-2 pb-4">
+            <div className="w-full shrink-0 h-full p-2">
                 {renderGameUI(
                 'goldfly',
                 <GoldFlyAnimation 
@@ -1390,7 +1390,7 @@ export default function TradingDashboard() {
                 goldFlyControls
                 )}
             </div>
-            <div className="w-full shrink-0 h-full p-2 pb-4">
+            <div className="w-full shrink-0 h-full p-2">
                 {renderGameUI(
                 'bitcrash',
                 <BitCrashAnimation
