@@ -19,6 +19,7 @@ import {
   HandCoins,
   Coins,
   XCircle,
+  Frown,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -56,7 +57,6 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { get, ref, update } from "firebase/database";
 import { PriceChart } from "./price-chart";
-import { UserModal } from "./user-modal";
 import { Separator } from "./ui/separator";
 import { GoldFlyAnimation } from "./goldfly-animation";
 import { BitCrashAnimation } from "./bit-crash-animation";
@@ -224,7 +224,6 @@ function calculateTrade(
 
 export default function TradingDashboard() {
   const [username, setUsername] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | null>(null);
@@ -317,59 +316,75 @@ export default function TradingDashboard() {
     trendRef.current = trend;
   }, [trend]);
 
-  const handleUserLogin = useCallback(
-    async (name: string): Promise<"success" | "not_found" | "error"> => {
-      try {
-        const userRef = ref(db, `users/${name}`);
-        const snapshot = await get(userRef);
+  const loadUserData = useCallback(async (name: string) => {
+    setIsLoading(true);
+    try {
+      const userRef = ref(db, `users/${name}`);
+      const snapshot = await get(userRef);
 
-        if (snapshot.exists()) {
-          const userData: UserData = snapshot.val();
-          setUsdBalance(userData.usdBalance ?? 1000);
-          setBtcBalance(userData.btcBalance ?? 0);
-          setAvgBtcCost(userData.avgBtcCost ?? 0);
-          setTodaysPL(userData.todaysPL ?? 0);
-
-          const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
-          
-          let initialRegime: PriceRegimeKey = "MID";
-          if (lastPrice < priceRegimes.LOW.range[1]) {
-            initialRegime = "LOW";
-          } else if (lastPrice > priceRegimes.HIGH.range[0]) {
-            initialRegime = "HIGH";
-          }
-          
-          setCurrentPrice(lastPrice);
-          setPriceRegime(initialRegime);
-
-          setUsername(name);
-          localStorage.setItem("bitsim_username", name);
-          setIsModalOpen(false);
-          return "success";
-        } else {
-          return "not_found";
-        }
-      } catch (err) {
-        console.error("Firebase error during login: ", err);
-        toast({
-          variant: "destructive",
-          description: "Error connecting to the server.",
-        });
-        return "error";
+      if (snapshot.exists()) {
+        const userData: UserData = snapshot.val();
+        setUsdBalance(userData.usdBalance ?? 1000);
+        setBtcBalance(userData.btcBalance ?? 0);
+        setAvgBtcCost(userData.avgBtcCost ?? 0);
+        setTodaysPL(userData.todaysPL ?? 0);
+        const lastPrice = userData.lastPrice ?? INITIAL_PRICE;
+        let initialRegime: PriceRegimeKey = "MID";
+        if (lastPrice < priceRegimes.LOW.range[1]) initialRegime = "LOW";
+        else if (lastPrice > priceRegimes.HIGH.range[0]) initialRegime = "HIGH";
+        setCurrentPrice(lastPrice);
+        setPriceRegime(initialRegime);
+      } else {
+        // New user
+        const newUserData = {
+          usdBalance: 1000,
+          btcBalance: 0,
+          avgBtcCost: 0,
+          todaysPL: 0,
+          lastPrice: INITIAL_PRICE
+        };
+        await update(userRef, newUserData);
+        setUsdBalance(newUserData.usdBalance);
+        setBtcBalance(newUserData.btcBalance);
+        setAvgBtcCost(newUserData.avgBtcCost);
+        setTodaysPL(newUserData.todaysPL);
+        setCurrentPrice(INITIAL_PRICE);
+        setPriceRegime("MID");
       }
-    },
-    [toast]
-  );
+    } catch (err) {
+      console.error("Firebase error: ", err);
+      toast({
+        variant: "destructive",
+        description: "Error connecting to the server.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("bitsim_username");
     if (storedUsername) {
-      handleUserLogin(storedUsername).finally(() => setIsLoading(false));
+      setUsername(storedUsername);
+      loadUserData(storedUsername);
     } else {
-      setIsModalOpen(true);
-      setIsLoading(false);
+      const name = prompt("Please enter your username:");
+      if (name) {
+        const trimmedName = name.trim();
+        localStorage.setItem("bitsim_username", trimmedName);
+        setUsername(trimmedName);
+        loadUserData(trimmedName);
+      } else {
+        // Handle case where user cancels prompt
+        setIsLoading(false);
+        toast({
+          title: "Welcome!",
+          description: "Enter a username to save progress."
+        })
+      }
     }
-  }, [handleUserLogin]);
+  }, [loadUserData, toast]);
+
 
   useEffect(() => {
     if (!username || isLoading || tradeMode !== 'normal') return;
@@ -539,7 +554,12 @@ export default function TradingDashboard() {
     } else {
       finalUsdBalance = usdBalance; // Bet amount was already deducted
       toast({
-        title: "You Lost ❌",
+        title: (
+          <div className="flex items-center gap-2">
+            <Frown className="h-5 w-5" />
+            You Lost!
+          </div>
+        ),
         description: `You lost $${betAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
         variant: 'destructive'
       });
@@ -561,13 +581,13 @@ export default function TradingDashboard() {
     const shouldBeExtreme = portfolioValue >= EXTREME_MODE_THRESHOLD;
     if (shouldBeExtreme !== isExtremeMode) {
       setIsExtremeMode(shouldBeExtreme);
-      toast({
-        title: shouldBeExtreme ? "Extreme Mode Activated!" : "Normal Mode Restored",
-        description: shouldBeExtreme
-          ? "Your portfolio is over $5M. Normal trading is replaced."
-          : "Your portfolio is below $5M. Standard trading rules apply.",
-        variant: shouldBeExtreme ? "destructive" : "default",
-      });
+      if (shouldBeExtreme) {
+        toast({
+            title: "Extreme Mode Activated!",
+            description: "Your portfolio is over $5M. Normal trading is replaced.",
+            variant: "destructive",
+        });
+      }
     }
   }, [portfolioValue, isExtremeMode, toast]);
 
@@ -668,7 +688,6 @@ export default function TradingDashboard() {
     setPriceHistory([]);
     rawPriceHistoryRef.current = [];
     localStorage.removeItem("bitsim_username");
-    setIsModalOpen(true);
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
@@ -998,12 +1017,6 @@ export default function TradingDashboard() {
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
       </div>
-    );
-  }
-
-  if (isModalOpen || !username) {
-    return (
-      <UserModal open={isModalOpen || !username} onSave={handleUserLogin} />
     );
   }
 
@@ -1535,4 +1548,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
