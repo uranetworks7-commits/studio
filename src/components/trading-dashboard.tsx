@@ -470,7 +470,7 @@ export default function TradingDashboard() {
         return Math.max(priceRegimes.LOW.range[0] * 0.9, newPrice);
       });
   
-      const nextUpdateIn = 1000 + Math.random() * 500;
+      const nextUpdateIn = 3000 + Math.random() * 2000;
   
       if (priceUpdateTimeoutRef.current) {
         clearTimeout(priceUpdateTimeoutRef.current);
