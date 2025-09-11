@@ -18,7 +18,7 @@ export default function AboutPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedUsername = localStorage.getItem('bitsim_username');
+    const storedUsername = localStorage.getItem('username');
     if (storedUsername) {
       setUsername(storedUsername);
     }

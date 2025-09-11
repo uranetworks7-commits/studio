@@ -363,7 +363,7 @@ export default function TradingDashboard() {
   }, [toast]);
 
   useEffect(() => {
-    const storedUsername = localStorage.getItem("bitsim_username");
+    const storedUsername = localStorage.getItem("username");
     if (storedUsername) {
       setUsername(storedUsername);
       loadUserData(storedUsername);
@@ -371,7 +371,7 @@ export default function TradingDashboard() {
       const name = prompt("Please enter your username:");
       if (name) {
         const trimmedName = name.trim();
-        localStorage.setItem("bitsim_username", trimmedName);
+        localStorage.setItem("username", trimmedName);
         setUsername(trimmedName);
         loadUserData(trimmedName);
       } else {
@@ -687,7 +687,7 @@ export default function TradingDashboard() {
     setTodaysPL(0);
     setPriceHistory([]);
     rawPriceHistoryRef.current = [];
-    localStorage.removeItem("bitsim_username");
+    localStorage.removeItem("username");
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
