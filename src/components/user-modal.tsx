@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bitcoin } from "lucide-react";
 
 interface UserModalProps {
   open: boolean;
@@ -43,7 +43,10 @@ export function UserModal({ open, onSave }: UserModalProps) {
     <Dialog open={open} onOpenChange={!open ? () => {} : undefined}>
       <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="font-headline">Welcome to URA Trade</DialogTitle>
+          <DialogTitle className="font-headline flex items-center justify-center gap-2">
+            <Bitcoin className="h-6 w-6 text-green-500" />
+            Welcome to URA Trade
+          </DialogTitle>
           <DialogDescription>
             Enter your username to start trading.
           </DialogDescription>
