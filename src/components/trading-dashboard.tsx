@@ -62,6 +62,7 @@ import { GoldFlyAnimation } from "./goldfly-animation";
 import { BitCrashAnimation } from "./bit-crash-animation";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { UserModal } from "./user-modal";
 
 // Custom hook for swipe detection
 const useSwipe = (ref: React.RefObject<HTMLElement>, onSwipe: (direction: 'left' | 'right') => void) => {
@@ -227,6 +228,7 @@ export default function TradingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTrading, setIsTrading] = useState(false);
   const [tradeAction, setTradeAction] = useState<'buy' | 'sell' | null>(null);
+  const [showUserModal, setShowUserModal] = useState(false);
   
   const [usdBalance, setUsdBalance] = useState<number>(1000);
   const [todaysPL, setTodaysPL] = useState<number>(0);
@@ -334,22 +336,9 @@ export default function TradingDashboard() {
         else if (lastPrice > priceRegimes.HIGH.range[0]) initialRegime = "HIGH";
         setCurrentPrice(lastPrice);
         setPriceRegime(initialRegime);
+        return 'success';
       } else {
-        // New user
-        const newUserData = {
-          usdBalance: 1000,
-          btcBalance: 0,
-          avgBtcCost: 0,
-          todaysPL: 0,
-          lastPrice: INITIAL_PRICE
-        };
-        await update(userRef, newUserData);
-        setUsdBalance(newUserData.usdBalance);
-        setBtcBalance(newUserData.btcBalance);
-        setAvgBtcCost(newUserData.avgBtcCost);
-        setTodaysPL(newUserData.todaysPL);
-        setCurrentPrice(INITIAL_PRICE);
-        setPriceRegime("MID");
+        return 'not_found';
       }
     } catch (err) {
       console.error("Firebase error: ", err);
@@ -357,10 +346,21 @@ export default function TradingDashboard() {
         variant: "destructive",
         description: "Error connecting to the server.",
       });
+      return 'not_found';
     } finally {
       setIsLoading(false);
     }
   }, [toast]);
+
+  const handleUserLogin = async (name: string): Promise<'success' | 'not_found'> => {
+    const result = await loadUserData(name);
+    if (result === 'success') {
+      localStorage.setItem("username", name);
+      setUsername(name);
+      setShowUserModal(false);
+    }
+    return result;
+  };
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
@@ -368,22 +368,9 @@ export default function TradingDashboard() {
       setUsername(storedUsername);
       loadUserData(storedUsername);
     } else {
-      const name = prompt("Please enter your username:");
-      if (name) {
-        const trimmedName = name.trim();
-        localStorage.setItem("username", trimmedName);
-        setUsername(trimmedName);
-        loadUserData(trimmedName);
-      } else {
-        // Handle case where user cancels prompt
-        setIsLoading(false);
-        toast({
-          title: "Welcome!",
-          description: "Enter a username to save progress."
-        })
-      }
+      setShowUserModal(true);
     }
-  }, [loadUserData, toast]);
+  }, [loadUserData]);
 
 
   useEffect(() => {
@@ -692,6 +679,7 @@ export default function TradingDashboard() {
       title: "Logged Out",
       description: "You have been successfully logged out.",
     });
+    setShowUserModal(true);
   };
 
   const handleFeedback = () => {
@@ -1012,11 +1000,14 @@ export default function TradingDashboard() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !username) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-      </div>
+      <>
+        <div className="flex justify-center items-center min-h-screen">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+        <UserModal open={showUserModal} onSave={handleUserLogin} />
+      </>
     );
   }
 
@@ -1427,6 +1418,8 @@ export default function TradingDashboard() {
       className="flex flex-col h-screen bg-background"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 1rem)' }}
     >
+       <UserModal open={showUserModal} onSave={handleUserLogin} />
+
       <header className="p-2 border-b flex flex-col gap-2 shrink-0">
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -1548,3 +1541,5 @@ export default function TradingDashboard() {
     </div>
   );
 }
+
+    
