@@ -45,7 +45,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
         <DialogHeader>
           <DialogTitle className="font-headline flex items-center justify-center gap-2">
             <Bitcoin className="h-6 w-6 text-green-500" />
-            Welcome to URA Trade
+            Welcome to URA Pro Trade
           </DialogTitle>
           <DialogDescription>
             Enter your username to start trading.
