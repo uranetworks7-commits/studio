@@ -1000,15 +1000,20 @@ export default function TradingDashboard() {
     }
   };
 
-  if (isLoading && !username) {
+  if (!username) {
     return (
-      <>
-        <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen bg-background">
+        <UserModal open={true} onSave={handleUserLogin} />
+      </div>
+    );
+  }
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-background">
           <Loader2 className="h-16 w-16 animate-spin text-primary" />
         </div>
-        <UserModal open={showUserModal} onSave={handleUserLogin} />
-      </>
-    );
+    )
   }
 
   const renderExtremeModeUI = () => (
@@ -1418,9 +1423,7 @@ export default function TradingDashboard() {
       className="flex flex-col h-screen bg-background"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 1rem)' }}
     >
-       <UserModal open={showUserModal} onSave={handleUserLogin} />
-
-      <header className="p-2 border-b flex flex-col gap-2 shrink-0">
+       <header className="p-2 border-b flex flex-col gap-2 shrink-0">
         <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
                 <h1 className="text-lg md:text-2xl font-headline font-bold text-primary">
@@ -1541,5 +1544,3 @@ export default function TradingDashboard() {
     </div>
   );
 }
-
-    
