@@ -1100,7 +1100,7 @@ export default function TradingDashboard() {
                   <CardHeader className="flex-row items-center justify-between">
                       <div>
                           <CardTitle className="font-headline flex items-center gap-2 text-xl">
-                              New Trade
+                              Bitcoin Trade
                           </CardTitle>
                           <CardDescription>Buy or sell Bitcoin.</CardDescription>
                       </div>
