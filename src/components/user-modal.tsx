@@ -65,7 +65,7 @@ export function UserModal({ open, onSave }: UserModalProps) {
           {error && <p className="col-span-4 text-center font-semibold text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleSave} disabled={isChecking} className="w-full">
+          <Button type="submit" onClick={handleSave} disabled={isChecking} className="w-full bg-green-600 hover:bg-green-700">
             {isChecking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Login
           </Button>
